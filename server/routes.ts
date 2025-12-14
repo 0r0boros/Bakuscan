@@ -1,13 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-function getOpenAI() {
-  if (!process.env.OPENAI_API_KEY) {
+function getGroq() {
+  if (!process.env.GROQ_API_KEY) {
     return null;
   }
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return new Groq({ apiKey: process.env.GROQ_API_KEY });
 }
 
 const BAKUGAN_DATABASE = {
@@ -25,19 +24,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No image provided" });
       }
 
-      const openai = getOpenAI();
-      if (!openai) {
-        return res.status(500).json({ error: "OpenAI API key not configured. Please add your OPENAI_API_KEY." });
+      const groq = getGroq();
+      if (!groq) {
+        return res.status(500).json({ error: "Groq API key not configured. Please add your GROQ_API_KEY." });
       }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5",
+      const response = await groq.chat.completions.create({
+        model: "llama-3.2-90b-vision-preview",
         messages: [
           {
-            role: "system",
-            content: `You are an expert Bakugan identifier and appraiser specializing in original run Bakugan toys from 2007-2012. 
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `You are an expert Bakugan identifier and appraiser specializing in original run Bakugan toys from 2007-2012. 
             
-Analyze images of Bakugan toys and identify:
+Analyze this image of a Bakugan toy and identify:
 1. The exact name/model of the Bakugan
 2. Which series it belongs to (Battle Brawlers, New Vestroia, Gundalian Invaders, or Mechtanium Surge)
 3. Its attribute (Pyrus, Aquos, Haos, Darkus, Subterra, or Ventus)
@@ -67,14 +69,9 @@ Base valuations on:
 - Mechtanium Surge (2011-2012): Generally $5-25, special editions $25-80+
 
 Condition is assumed to be "Good" unless visible damage is apparent.
-If you cannot identify the Bakugan with confidence, still provide your best estimate with a lower confidence score.`,
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Please identify this Bakugan and provide its estimated market value based on recent public sales.",
+If you cannot identify the Bakugan with confidence, still provide your best estimate with a lower confidence score.
+
+IMPORTANT: Respond ONLY with valid JSON, no other text.`,
               },
               {
                 type: "image_url",
@@ -85,8 +82,8 @@ If you cannot identify the Bakugan with confidence, still provide your best esti
             ],
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1024,
+        temperature: 0.7,
+        max_tokens: 1024,
       });
 
       const content = response.choices[0].message.content;
@@ -94,7 +91,12 @@ If you cannot identify the Bakugan with confidence, still provide your best esti
         return res.status(500).json({ error: "No response from AI" });
       }
 
-      const analysis = JSON.parse(content);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return res.status(500).json({ error: "Invalid response format from AI" });
+      }
+
+      const analysis = JSON.parse(jsonMatch[0]);
 
       if (!analysis.name || !analysis.attribute || !analysis.estimatedValue) {
         return res.status(500).json({ error: "Invalid analysis response" });
