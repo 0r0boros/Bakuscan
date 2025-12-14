@@ -2,7 +2,7 @@
 
 ## Overview
 
-BakuScan is a mobile utility app built with React Native/Expo that allows users to scan and identify Bakugan toys from the original 2007-2012 run. The app uses AI-powered image recognition (Groq Llama 3.2 90B Vision) to identify Bakugan toys, determine their series, attribute, rarity, and estimate market value. Users can maintain a local scan history and customize their experience through profile settings.
+BakuScan is a mobile utility app built with React Native/Expo that allows users to scan and identify Bakugan toys from the original 2007-2012 run. The app uses AI-powered image recognition (Groq Llama 4 Scout Vision) to identify Bakugan toys, determine their series, attribute, rarity, and estimate market value. Users can maintain a local scan history and customize their experience through profile settings.
 
 ## User Preferences
 
@@ -27,7 +27,7 @@ Preferred communication style: Simple, everyday language.
 - **Server**: Express.js running on Node.js with TypeScript
 - **API Structure**: RESTful endpoints under `/api/` prefix
   - `POST /api/analyze` - Main endpoint for Bakugan image analysis
-- **AI Integration**: Groq API (Llama 3.2 90B Vision) for image recognition
+- **AI Integration**: Groq API (Llama 4 Scout Vision) for image recognition
 - **Build System**: esbuild for server bundling, tsx for development
 
 ### Data Storage
@@ -54,7 +54,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Third-Party Services
-- **Groq API**: Llama 3.2 90B Vision model for Bakugan image recognition and identification (requires `GROQ_API_KEY` environment variable)
+- **Groq API**: Llama 4 Scout Vision model for Bakugan image recognition and identification (requires `GROQ_API_KEY` environment variable)
 
 ### Key NPM Packages
 - **expo-camera**: Native camera access for scanning
