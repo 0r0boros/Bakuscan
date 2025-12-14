@@ -1,5 +1,5 @@
 import { getApiUrl, apiRequest } from "@/lib/query-client";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
 export interface BakuganAnalysis {
@@ -35,7 +35,7 @@ export async function analyzeBakugan(imageUri: string): Promise<BakuganAnalysis>
       });
     } else {
       base64Image = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: 'base64',
+        encoding: FileSystem.EncodingType.Base64,
       });
     }
 
