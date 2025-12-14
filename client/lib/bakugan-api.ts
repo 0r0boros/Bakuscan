@@ -35,7 +35,7 @@ export async function analyzeBakugan(imageUri: string): Promise<BakuganAnalysis>
       });
     } else {
       base64Image = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
     }
 
