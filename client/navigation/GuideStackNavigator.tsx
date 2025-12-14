@@ -1,24 +1,24 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import HistoryScreen, { HistoryHeaderTitle } from "@/screens/HistoryScreen";
+import GuideScreen from "@/screens/GuideScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
-export type HomeStackParamList = {
-  History: undefined;
+export type GuideStackParamList = {
+  Guide: undefined;
 };
 
-const Stack = createNativeStackNavigator<HomeStackParamList>();
+const Stack = createNativeStackNavigator<GuideStackParamList>();
 
-export default function HomeStackNavigator() {
+export default function GuideStackNavigator() {
   const screenOptions = useScreenOptions();
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="History"
-        component={HistoryScreen}
+        name="Guide"
+        component={GuideScreen}
         options={{
-          headerTitle: () => <HistoryHeaderTitle />,
+          headerTitle: "Condition Guide",
         }}
       />
     </Stack.Navigator>
