@@ -2,7 +2,7 @@
 
 ## Overview
 
-BakuScan is a mobile utility app built with React Native/Expo that allows users to scan and identify Bakugan toys from the original 2007-2012 run. The app uses AI-powered image recognition (OpenAI GPT-5 vision) to identify Bakugan toys, determine their series, attribute, rarity, and estimate market value. Users can maintain a local scan history and customize their experience through profile settings.
+BakuScan is a mobile utility app built with React Native/Expo that allows users to scan and identify Bakugan toys from the original 2007-2012 run. The app uses AI-powered image recognition (Groq Llama 3.2 90B Vision) to identify Bakugan toys, determine their series, attribute, rarity, and estimate market value. Users can maintain a local scan history and customize their experience through profile settings.
 
 ## User Preferences
 
@@ -27,7 +27,7 @@ Preferred communication style: Simple, everyday language.
 - **Server**: Express.js running on Node.js with TypeScript
 - **API Structure**: RESTful endpoints under `/api/` prefix
   - `POST /api/analyze` - Main endpoint for Bakugan image analysis
-- **AI Integration**: OpenAI API (GPT-5 with vision capabilities) for image recognition
+- **AI Integration**: Groq API (Llama 3.2 90B Vision) for image recognition
 - **Build System**: esbuild for server bundling, tsx for development
 
 ### Data Storage
@@ -54,14 +54,14 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Third-Party Services
-- **OpenAI API**: GPT-5 model for Bakugan image recognition and identification (requires `OPENAI_API_KEY` environment variable)
+- **Groq API**: Llama 3.2 90B Vision model for Bakugan image recognition and identification (requires `GROQ_API_KEY` environment variable)
 
 ### Key NPM Packages
 - **expo-camera**: Native camera access for scanning
 - **expo-image-picker**: Gallery image selection
 - **expo-file-system**: Reading images as base64 for API transmission
 - **@react-native-async-storage/async-storage**: Local data persistence
-- **openai**: Official OpenAI SDK for vision API calls
+- **groq-sdk**: Official Groq SDK for vision API calls
 - **drizzle-orm** + **pg**: Database ORM (PostgreSQL configured via `DATABASE_URL`)
 
 ### Platform Configuration
@@ -70,7 +70,7 @@ Preferred communication style: Simple, everyday language.
 - Web: Single-page output mode supported
 
 ### Environment Variables Required
-- `OPENAI_API_KEY`: For Bakugan image analysis
+- `GROQ_API_KEY`: For Bakugan image analysis (Groq Llama 3.2 Vision)
 - `DATABASE_URL`: PostgreSQL connection string (for Drizzle)
 - `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
 - `REPLIT_DEV_DOMAIN`: Development domain for Expo and CORS
