@@ -252,9 +252,15 @@ export default function ScanResultScreen() {
             <ThemedText type="h2" style={{ color: theme.primary }}>
               ${analysis.estimatedValue.low} - ${analysis.estimatedValue.high}
             </ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Based on recent sales data
-            </ThemedText>
+            {analysis.ebayData?.available && analysis.ebayData.average ? (
+              <ThemedText type="small" style={{ color: theme.success }}>
+                Avg: ${analysis.ebayData.average.toFixed(2)} ({analysis.ebayData.source})
+              </ThemedText>
+            ) : (
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {analysis.ebayData?.source || 'Based on AI estimates'}
+              </ThemedText>
+            )}
           </View>
           <View style={styles.confidenceBar}>
             <View 
@@ -270,6 +276,23 @@ export default function ScanResultScreen() {
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
             {Math.round(analysis.confidence * 100)}% confidence
           </ThemedText>
+          {analysis.ebayData?.recentSales && analysis.ebayData.recentSales.length > 0 ? (
+            <View style={{ marginTop: Spacing.md }}>
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+                Recent eBay Sales:
+              </ThemedText>
+              {analysis.ebayData.recentSales.slice(0, 3).map((sale, index) => (
+                <View key={index} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                  <ThemedText type="small" style={{ flex: 1, color: theme.textSecondary }} numberOfLines={1}>
+                    {sale.title.substring(0, 30)}...
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.primary, fontWeight: '600' }}>
+                    ${sale.price.toFixed(2)}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </InfoCard>
 
         <InfoCard title="Details" icon="info">

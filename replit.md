@@ -70,7 +70,15 @@ Preferred communication style: Simple, everyday language.
 - Web: Single-page output mode supported
 
 ### Environment Variables Required
-- `GROQ_API_KEY`: For Bakugan image analysis (Groq Llama 3.2 Vision)
+- `GROQ_API_KEY`: For Bakugan image analysis (Groq Llama 4 Scout Vision)
+- `EBAY_CLIENT_ID`: eBay Developer API client ID (for real pricing data)
+- `EBAY_CLIENT_SECRET`: eBay Developer API client secret (for real pricing data)
 - `DATABASE_URL`: PostgreSQL connection string (for Drizzle)
 - `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
 - `REPLIT_DEV_DOMAIN`: Development domain for Expo and CORS
+
+### eBay Integration
+- Uses eBay Marketplace Insights API to fetch real sold item prices
+- Searches for recently sold Bakugan matching the AI-identified name
+- Displays price range, average, and recent sales in the app
+- Falls back to AI estimates if eBay API is not configured or returns no results

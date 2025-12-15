@@ -2,6 +2,19 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
+export interface EbayRecentSale {
+  title: string;
+  price: number;
+  soldDate: string;
+}
+
+export interface EbayData {
+  available: boolean;
+  average?: number;
+  recentSales?: EbayRecentSale[];
+  source: string;
+}
+
 export interface BakuganAnalysis {
   name: string;
   series: string;
@@ -15,6 +28,7 @@ export interface BakuganAnalysis {
     high: number;
   };
   confidence: number;
+  ebayData?: EbayData;
 }
 
 export async function analyzeBakugan(imageUri: string): Promise<BakuganAnalysis> {

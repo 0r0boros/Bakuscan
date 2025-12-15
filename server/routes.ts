@@ -9,6 +9,174 @@ function getGroq() {
   return new Groq({ apiKey: process.env.GROQ_API_KEY });
 }
 
+interface EbayTokenResponse {
+  access_token: string;
+  expires_in: number;
+  token_type: string;
+}
+
+interface EbaySoldItem {
+  title: string;
+  lastSoldPrice: {
+    value: string;
+    currency: string;
+  };
+  lastSoldDate: string;
+}
+
+interface EbayPriceData {
+  available: boolean;
+  soldItems: Array<{
+    title: string;
+    price: number;
+    soldDate: string;
+  }>;
+  priceRange: {
+    low: number;
+    high: number;
+    average: number;
+  } | null;
+  source: string;
+}
+
+let ebayTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getEbayAccessToken(): Promise<string | null> {
+  const clientId = process.env.EBAY_CLIENT_ID;
+  const clientSecret = process.env.EBAY_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  if (ebayTokenCache && Date.now() < ebayTokenCache.expiresAt) {
+    return ebayTokenCache.token;
+  }
+
+  try {
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    const response = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`,
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        scope: 'https://api.ebay.com/oauth/api_scope/buy.marketplace.insights',
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('eBay token error:', await response.text());
+      return null;
+    }
+
+    const data = await response.json() as EbayTokenResponse;
+    
+    ebayTokenCache = {
+      token: data.access_token,
+      expiresAt: Date.now() + (data.expires_in * 1000) - 60000,
+    };
+
+    return data.access_token;
+  } catch (error) {
+    console.error('Failed to get eBay token:', error);
+    return null;
+  }
+}
+
+async function searchEbaySoldItems(bakuganName: string, attribute?: string): Promise<EbayPriceData> {
+  const token = await getEbayAccessToken();
+  
+  if (!token) {
+    return {
+      available: false,
+      soldItems: [],
+      priceRange: null,
+      source: 'eBay API not configured',
+    };
+  }
+
+  try {
+    const searchQuery = `Bakugan ${bakuganName} ${attribute || ''}`.trim();
+    
+    const response = await fetch(
+      `https://api.ebay.com/buy/marketplace_insights/v1_beta/item_sales/search?q=${encodeURIComponent(searchQuery)}&limit=20`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('eBay search error:', errorText);
+      return {
+        available: false,
+        soldItems: [],
+        priceRange: null,
+        source: 'eBay API error',
+      };
+    }
+
+    const data = await response.json();
+    const itemSales = data.itemSales || [];
+
+    if (itemSales.length === 0) {
+      return {
+        available: true,
+        soldItems: [],
+        priceRange: null,
+        source: 'No recent eBay sales found',
+      };
+    }
+
+    const soldItems = itemSales.map((item: EbaySoldItem) => ({
+      title: item.title,
+      price: parseFloat(item.lastSoldPrice?.value || '0'),
+      soldDate: item.lastSoldDate,
+    })).filter((item: { price: number }) => item.price > 0);
+
+    if (soldItems.length === 0) {
+      return {
+        available: true,
+        soldItems: [],
+        priceRange: null,
+        source: 'No valid price data found',
+      };
+    }
+
+    const prices = soldItems.map((item: { price: number }) => item.price);
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+    const average = prices.reduce((a: number, b: number) => a + b, 0) / prices.length;
+
+    return {
+      available: true,
+      soldItems: soldItems.slice(0, 5),
+      priceRange: {
+        low: Math.round(low * 100) / 100,
+        high: Math.round(high * 100) / 100,
+        average: Math.round(average * 100) / 100,
+      },
+      source: `Based on ${soldItems.length} recent eBay sales`,
+    };
+  } catch (error) {
+    console.error('eBay search failed:', error);
+    return {
+      available: false,
+      soldItems: [],
+      priceRange: null,
+      source: 'eBay API connection failed',
+    };
+  }
+}
+
 const BAKUGAN_DATABASE = {
   series: ["Battle Brawlers", "New Vestroia", "Gundalian Invaders", "Mechtanium Surge"],
   attributes: ["Pyrus", "Aquos", "Haos", "Darkus", "Subterra", "Ventus"],
@@ -100,6 +268,26 @@ IMPORTANT: Respond ONLY with valid JSON, no other text.`,
 
       if (!analysis.name || !analysis.attribute || !analysis.estimatedValue) {
         return res.status(500).json({ error: "Invalid analysis response" });
+      }
+
+      const ebayData = await searchEbaySoldItems(analysis.name, analysis.attribute);
+
+      if (ebayData.available && ebayData.priceRange) {
+        analysis.estimatedValue = {
+          low: ebayData.priceRange.low,
+          high: ebayData.priceRange.high,
+        };
+        analysis.ebayData = {
+          available: true,
+          average: ebayData.priceRange.average,
+          recentSales: ebayData.soldItems,
+          source: ebayData.source,
+        };
+      } else {
+        analysis.ebayData = {
+          available: false,
+          source: ebayData.source,
+        };
       }
 
       res.json(analysis);
