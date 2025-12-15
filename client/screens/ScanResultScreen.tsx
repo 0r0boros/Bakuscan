@@ -85,7 +85,7 @@ export default function ScanResultScreen() {
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
   const { addToHistory, findByImageUri, updateScanCorrection } = useScanHistory();
-  const { addCorrection } = useCorrectionHistory();
+  const { addCorrection, getSuggestedCorrection } = useCorrectionHistory();
   
   const [analysis, setAnalysis] = useState<BakuganAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,6 +93,8 @@ export default function ScanResultScreen() {
   const [isSaved, setIsSaved] = useState(false);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [isCorrected, setIsCorrected] = useState(false);
+  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
   const { imageUri } = route.params;
 
@@ -123,6 +125,14 @@ export default function ScanResultScreen() {
         const result = await analyzeBakugan(imageUri);
         setAnalysis(result);
         
+        setSuggestionDismissed(false);
+        const suggested = getSuggestedCorrection(result.name);
+        if (suggested && suggested !== result.name) {
+          setSuggestedName(suggested);
+        } else {
+          setSuggestedName(null);
+        }
+        
         if (Platform.OS !== "web") {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
@@ -137,7 +147,7 @@ export default function ScanResultScreen() {
     }
 
     analyze();
-  }, [imageUri]);
+  }, [imageUri, getSuggestedCorrection]);
 
   const handleSave = async () => {
     if (!analysis) return;
@@ -175,6 +185,14 @@ export default function ScanResultScreen() {
     try {
       const result = await analyzeBakugan(imageUri);
       setAnalysis(result);
+      
+      setSuggestionDismissed(false);
+      const suggested = getSuggestedCorrection(result.name);
+      if (suggested && suggested !== result.name) {
+        setSuggestedName(suggested);
+      } else {
+        setSuggestedName(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to analyze image");
     } finally {
@@ -205,10 +223,51 @@ export default function ScanResultScreen() {
 
     setIsCorrected(true);
     setShowCorrectionModal(false);
+    setSuggestedName(null);
 
     if (Platform.OS !== "web") {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
+  };
+
+  const handleApplySuggestion = async () => {
+    if (!analysis || !suggestedName) return;
+
+    const correctionData: CorrectionData = {
+      name: suggestedName,
+      attribute: analysis.attribute,
+      gPower: String(analysis.gPower),
+      treatment: "Standard",
+    };
+
+    await addCorrection(
+      imageUri,
+      imageUri,
+      analysis.name,
+      correctionData
+    );
+
+    setAnalysis({
+      ...analysis,
+      name: suggestedName,
+    });
+
+    if (isSaved) {
+      await updateScanCorrection(imageUri, correctionData);
+    }
+
+    setIsCorrected(true);
+    setSuggestedName(null);
+    setSuggestionDismissed(true);
+
+    if (Platform.OS !== "web") {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleDismissSuggestion = () => {
+    setSuggestionDismissed(true);
+    setSuggestedName(null);
   };
 
   if (isLoading) {
@@ -281,6 +340,49 @@ export default function ScanResultScreen() {
             </ThemedText>
           </View>
         </View>
+
+        {suggestedName && !suggestionDismissed && !isCorrected ? (
+          <Card style={[styles.suggestionCard, { borderColor: theme.warning }]}>
+            <View style={styles.suggestionContent}>
+              <View style={styles.suggestionHeader}>
+                <View style={[styles.suggestionIcon, { backgroundColor: theme.warning + '20' }]}>
+                  <Feather name="zap" size={16} color={theme.warning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="small" style={{ fontWeight: '600' }}>
+                    Based on your corrections
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    This might be: <ThemedText type="small" style={{ fontWeight: '600' }}>{suggestedName}</ThemedText>
+                  </ThemedText>
+                </View>
+              </View>
+              <View style={styles.suggestionActions}>
+                <Pressable
+                  onPress={handleApplySuggestion}
+                  style={({ pressed }) => [
+                    styles.suggestionApplyButton,
+                    { backgroundColor: theme.warning, opacity: pressed ? 0.8 : 1 },
+                  ]}
+                >
+                  <Feather name="check" size={14} color="#FFF" />
+                  <ThemedText style={styles.suggestionButtonText} lightColor="#FFF" darkColor="#FFF">
+                    Apply
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={handleDismissSuggestion}
+                  style={({ pressed }) => [
+                    styles.suggestionDismissButton,
+                    { opacity: pressed ? 0.6 : 1 },
+                  ]}
+                >
+                  <Feather name="x" size={16} color={theme.textSecondary} />
+                </Pressable>
+              </View>
+            </View>
+          </Card>
+        ) : null}
 
         <InfoCard title="Valuation" icon="dollar-sign">
           <View style={styles.valueContainer}>
@@ -551,5 +653,49 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
+  },
+  suggestionCard: {
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+  },
+  suggestionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.md,
+  },
+  suggestionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  suggestionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  suggestionActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  suggestionApplyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.xs,
+  },
+  suggestionButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  suggestionDismissButton: {
+    padding: Spacing.xs,
   },
 });
