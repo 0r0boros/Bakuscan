@@ -82,3 +82,11 @@ Preferred communication style: Simple, everyday language.
 - Searches for recently sold Bakugan matching the AI-identified name
 - Displays price range, average, and recent sales in the app
 - Falls back to AI estimates if eBay API is not configured or returns no results
+
+### Manual Correction System
+- Users can correct AI misidentifications via "Not correct? Tap to fix" button
+- CorrectionModal with searchable name picker, attribute, G-Power, and treatment pickers
+- Corrections are stored locally with useCorrectionHistory hook
+- Stats track how often specific Bakugan are corrected to different names
+- Smart suggestion banner appears when AI identifies a Bakugan that has been corrected 2+ times before
+- HistoryScreen shows "Corrected" badge for corrected items
