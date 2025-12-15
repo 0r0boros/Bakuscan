@@ -205,41 +205,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `You are an expert Bakugan identifier and appraiser specializing in original run Bakugan toys from 2007-2012. 
-            
-Analyze this image of a Bakugan toy and identify:
-1. The exact name/model of the Bakugan
-2. Which series it belongs to (Battle Brawlers, New Vestroia, Gundalian Invaders, or Mechtanium Surge)
-3. Its attribute (Pyrus, Aquos, Haos, Darkus, Subterra, or Ventus)
-4. Its G-Power value
-5. Release year
-6. Rarity level
-7. Any special features (translucent, special edition, etc.)
-8. Estimated market value based on recent sales data
+                text: `You are an expert Bakugan identifier specializing in original Bakugan Battle Brawlers toys from 2007-2012 by Spin Master/Sega Toys.
 
-Respond with JSON in this exact format:
+IDENTIFICATION GUIDE:
+
+VISUAL IDENTIFICATION - Look for these features:
+- Ball form: Spherical shape that transforms when placed on magnetic card
+- Attribute color: The primary color indicates the attribute
+- G-Power number: Usually printed on the toy (ranges from 150G to 1000G+)
+- Series markings: May have series logos or codes
+- Size: Original Bakugan are about 28mm diameter in ball form
+
+ATTRIBUTES BY COLOR:
+- Pyrus (Fire) = Red, orange, crimson
+- Aquos (Water) = Blue, cyan, navy  
+- Haos (Light) = White, yellow, gold
+- Darkus (Dark) = Black, purple, dark gray
+- Subterra (Earth) = Brown, tan, beige, orange-brown
+- Ventus (Wind) = Green, teal, lime
+
+COMMON BAKUGAN BY SERIES:
+
+Battle Brawlers (2007-2008):
+Dragonoid, Delta Dragonoid, Ultimate Dragonoid, Hydranoid, Dual Hydranoid, Alpha Hydranoid, Tigrerra, Blade Tigrerra, Gorem, Hammer Gorem, Preyas, Preyas Angelo/Diablo, Skyress, Storm Skyress, Reaper, Fear Ripper, Siege, Robotallion, Saurus, Mantris, Laserman, Centipoid, Rattleoid, Falconeer, Stinglash, Griffon, Warius, Ravenoid, Limulus, Juggernoid, Terrorclaw, Serpenoid, Tuskor, Monarus, Hynoid, El Condor, Gargonoid
+
+New Vestroia (2009):
+Helios, Helios MK2, Cross Dragonoid, Maxus Dragonoid, Elfin, Minx Elfin, Nemus, Saint Nemus, Percival, Knight Percival, Midnight Percival, Ingram, Master Ingram, Wilda, Magma Wilda, Vulcan, Mega Brontes, Altair, Hexados, Clawsaurus, Verias, Piercian
+
+Gundalian Invaders (2010):
+Dharak, Phantom Dharak, Linehalt, Lumino Dragonoid, Coredem, Rubanoid, Hawktor, Aranaut, Contestir, Strikeflier, Avior, Sabator, Lumagrowl, Lythirus, Krakix, Phosphos
+
+Mechtanium Surge (2011-2012):
+Titanium Dragonoid, Fusion Dragonoid, Mercury Dragonoid, Taylean, Trister, Boulderon, Wolfurio, Zenthon, Silent Strike, Accelerak
+
+SPECIAL VARIANTS TO NOTE:
+- Translucent/Clear versions (rarer)
+- Pearl/Metallic finish (special editions)
+- B1/B2/B3 designations (different releases)
+- Special Attack versions (with spring mechanisms)
+- BakuNano accessories attached
+
+Analyze this Bakugan image and identify it. Match the visual features to the reference list above.
+
+Respond with JSON:
 {
-  "name": "Dragonoid",
-  "series": "Battle Brawlers",
-  "attribute": "Pyrus",
-  "gPower": 350,
-  "releaseYear": "2007",
-  "rarity": "Rare",
-  "specialFeatures": ["Original Release"],
-  "estimatedValue": { "low": 15, "high": 35 },
-  "confidence": 0.85
+  "name": "[Exact Bakugan name from reference list]",
+  "series": "[Battle Brawlers/New Vestroia/Gundalian Invaders/Mechtanium Surge]",
+  "attribute": "[Pyrus/Aquos/Haos/Darkus/Subterra/Ventus]",
+  "gPower": [number if visible, estimate 300-500 if not],
+  "releaseYear": "[2007-2012]",
+  "rarity": "[Common/Rare/Super Rare/Ultra Rare/Special Edition]",
+  "specialFeatures": ["list any special features"],
+  "estimatedValue": { "low": [number], "high": [number] },
+  "confidence": [0.0-1.0 based on how certain you are]
 }
 
-Base valuations on:
-- Original Battle Brawlers (2007-2008): Generally $10-50, rare variants $50-200+
-- New Vestroia (2009): Generally $8-40, special editions $40-150+
-- Gundalian Invaders (2010): Generally $5-30, rare pieces $30-100+
-- Mechtanium Surge (2011-2012): Generally $5-25, special editions $25-80+
+Valuation guide:
+- Common Bakugan: $5-15
+- Rare Bakugan: $15-40
+- Super Rare/Special: $40-100
+- Ultra Rare/Translucent/Limited: $100-300+
 
-Condition is assumed to be "Good" unless visible damage is apparent.
-If you cannot identify the Bakugan with confidence, still provide your best estimate with a lower confidence score.
-
-IMPORTANT: Respond ONLY with valid JSON, no other text.`,
+IMPORTANT: Respond ONLY with valid JSON.`,
               },
               {
                 type: "image_url",
