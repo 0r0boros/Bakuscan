@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -18,13 +18,17 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
-    ...Feather.font,
-  });
+  const [fontsLoaded] = useFonts(
+    Platform.OS === "web" ? { ...Feather.font } : {}
+  );
   const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (Platform.OS === "web") {
+      if (fontsLoaded) {
+        setAppIsReady(true);
+      }
+    } else {
       setAppIsReady(true);
     }
   }, [fontsLoaded]);
