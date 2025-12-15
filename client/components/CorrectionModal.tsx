@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Modal,
@@ -160,6 +160,16 @@ export function CorrectionModal({
   });
   const [treatment, setTreatment] = useState(initialValues?.treatment || "Standard");
   const [activePicker, setActivePicker] = useState<PickerType>(null);
+
+  useEffect(() => {
+    if (visible && initialValues) {
+      setName(initialValues.name || "");
+      setAttribute(initialValues.attribute || "");
+      const gPowerStr = String(initialValues.gPower || "");
+      setGPower(gPowerStr.endsWith("G") ? gPowerStr : gPowerStr ? `${gPowerStr}G` : "");
+      setTreatment(initialValues.treatment || "Standard");
+    }
+  }, [visible, initialValues]);
 
   const handleSubmit = () => {
     if (!name || !attribute || !gPower || !treatment) return;

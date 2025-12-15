@@ -6,7 +6,10 @@ import {
   Pressable,
   RefreshControl,
   Image,
+  Alert,
+  Platform,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -37,7 +40,15 @@ function AttributeBadge({ attribute }: { attribute: string }) {
   );
 }
 
-function HistoryCard({ item, onPress }: { item: ScanResult; onPress: () => void }) {
+function HistoryCard({ 
+  item, 
+  onPress, 
+  onDelete 
+}: { 
+  item: ScanResult; 
+  onPress: () => void;
+  onDelete: () => void;
+}) {
   const { theme } = useTheme();
   
   return (
@@ -83,6 +94,19 @@ function HistoryCard({ item, onPress }: { item: ScanResult; onPress: () => void 
             {new Date(item.scannedAt).toLocaleDateString()}
           </ThemedText>
         </View>
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.deleteButton,
+            { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Feather name="trash-2" size={16} color={theme.error} />
+        </Pressable>
       </View>
     </Card>
   );
@@ -112,7 +136,7 @@ export default function HistoryScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const { history, refreshHistory, isLoading } = useScanHistory();
+  const { history, refreshHistory, isLoading, removeFromHistory } = useScanHistory();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -124,6 +148,26 @@ export default function HistoryScreen() {
   const handleItemPress = (item: ScanResult) => {
     navigation.navigate("ScanResult", { imageUri: item.imageUri });
   };
+
+  const handleDelete = useCallback((item: ScanResult) => {
+    Alert.alert(
+      "Remove from Collection",
+      `Are you sure you want to remove "${item.name}" from your collection?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            if (Platform.OS !== "web") {
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+            await removeFromHistory(item.id);
+          },
+        },
+      ]
+    );
+  }, [removeFromHistory]);
 
   return (
     <ThemedView style={styles.container}>
@@ -139,7 +183,11 @@ export default function HistoryScreen() {
         data={history}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <HistoryCard item={item} onPress={() => handleItemPress(item)} />
+          <HistoryCard 
+            item={item} 
+            onPress={() => handleItemPress(item)} 
+            onDelete={() => handleDelete(item)}
+          />
         )}
         ListEmptyComponent={!isLoading ? EmptyState : null}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
@@ -243,5 +291,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: "center",
+  },
+  deleteButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

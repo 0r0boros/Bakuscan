@@ -364,86 +364,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `You are an expert Bakugan identifier specializing in original Bakugan Battle Brawlers toys from 2007-2012 by Spin Master/Sega Toys.
+                text: `You are an expert Bakugan toy collector and identifier specializing in original Bakugan Battle Brawlers toys from 2007-2012 by Spin Master/Sega Toys.
 
-CRITICAL: You MUST identify the Bakugan using ONLY the names from the OFFICIAL CATALOG below. Do NOT invent names.
+TASK: Identify the Bakugan toy in this image. Use ONLY names from the OFFICIAL CATALOG below.
 
-=== OFFICIAL BAKUGAN CATALOG WITH VISUAL DESCRIPTIONS ===
+=== OFFICIAL BAKUGAN CATALOG ===
 ${catalogList}
 
-=== VISUAL IDENTIFICATION GUIDE ===
+=== IDENTIFICATION PROCESS ===
 
-STEP 1 - Determine the ATTRIBUTE by primary color:
-- Pyrus (Fire) = Red, orange, crimson, maroon
-- Aquos (Water) = Blue, cyan, navy, teal-blue
-- Haos (Light) = White, cream, yellow, gold, pale
-- Darkus (Dark) = Black, purple, dark gray, violet
-- Subterra (Earth) = Brown, tan, beige, orange-brown, earthy
-- Ventus (Wind) = Green, teal, lime, emerald
+STEP 1 - OBSERVE THE TOY CAREFULLY:
+Look at the physical toy in the image. Note:
+- Overall body shape (spherical ball that transforms)
+- What creature/form does it transform into?
+- Any distinctive appendages (wings, claws, tails, blades)?
+- Head shape and details
 
-STEP 2 - Identify PHYSICAL FEATURES:
-- Dragon-like with wings = Dragonoid variants
-- Multiple heads = Hydranoid variants
-- Tiger/cat with blades = Tigrerra variants
-- Rocky humanoid = Gorem variants
-- Phoenix bird = Skyress variants
-- Skull face with scythe = Reaper
-- Humanoid with claws = Fear Ripper
-- Knight with shield = Siege
-- Robot soldier = Robotallion
-- T-Rex dinosaur = Saurus
-- Praying mantis = Mantris
-- Scorpion with tail = Stinglash
-- Centipede = Centipoid
-- Snake = Serpenoid or Rattleoid
-- Turtle = Juggernoid
-- Crab = Terrorclaw
-- Jellyfish = Tentaclear
-- Mermaid = Sirenoid
-- Butterfly = Monarus
-- Falcon/hawk = Falconeer or Hawktor
-- Raven = Ravenoid
-- Griffin = Griffon
-- Gargoyle = Garganoid
-- Wolf = Lumagrowl or Wolfurio
-- Mechanical dragon = Helios variants
-- Elf fairy = Elfin variants
-- Dark knight = Percival variants
-- Ninja = Ingram variants or Taylean
-- Golem = Wilda or Coredem
+STEP 2 - DETERMINE THE ATTRIBUTE (by dominant color):
+| Attribute | Colors |
+|-----------|--------|
+| Pyrus | Red, orange, crimson, maroon, fire-red |
+| Aquos | Blue, cyan, navy, teal-blue, ocean-blue |
+| Haos | White, cream, yellow, gold, light tan |
+| Darkus | Black, purple, dark gray, violet, dark purple |
+| Subterra | Brown, tan, beige, orange-brown, sand, earthy tones |
+| Ventus | Green, teal, lime, emerald, forest-green |
 
-STEP 3 - Check for SPECIAL FEATURES:
-- Translucent/Clear plastic = Special Edition (rarer)
-- Pearl/Metallic finish = Special Edition
-- B1 = Original 2007 release (smaller, simpler)
-- B2 = 2008 release (more detailed)
-- B3 = 2009 release
-- Spring mechanism = Special Attack version
+STEP 3 - MATCH TO CATALOG USING KEY VISUAL FEATURES:
 
-=== RESPONSE FORMAT ===
-Analyze the image and match it to ONE entry from the OFFICIAL CATALOG above.
+DRAGONS (most common):
+- Dragonoid: Single dragon head, bat-like wings folding on sides, iconic protagonist
+- Delta Dragonoid: Larger wings, prominent horn on head
+- Neo Dragonoid: Sleeker design, from New Vestroia era
+- Helios variants: Mechanical/robotic dragon appearance, angular armor
 
-Respond ONLY with valid JSON:
+MULTI-HEADED:
+- Hydranoid: Two or three serpentine heads emerging
+- Alpha Hydranoid: Three distinct dragon heads
+
+HUMANOID/WARRIOR:
+- Fear Ripper: Slim humanoid with large curved claws on hands
+- Siege: Knight with obvious shield and sword shapes
+- Percival: Dark armored knight, cape-like wings
+- Gorem: Bulky rock/golem humanoid body
+
+BEASTS/ANIMALS:
+- Tigrerra: Tiger/cat face with blade appendages
+- Saurus: Clear T-Rex dinosaur shape
+- Juggernoid: Turtle with dome shell
+- Terrorclaw: Crab with prominent claws
+- Stinglash: Scorpion with curved tail stinger
+- Mantris: Praying mantis with scythe arms
+- Serpenoid: Snake body coiled
+- Griffon: Eagle head with lion body
+- Skyress: Phoenix bird with spread wings
+
+STEP 4 - COMMON LOOK-ALIKES (BE CAREFUL):
+- Dragonoid vs Helios: Dragonoid is organic, Helios is mechanical
+- Fear Ripper vs Reaper: Reaper has skull face + scythe, Fear Ripper has claws
+- Gorem vs Wilda: Gorem is B1/B2, Wilda is New Vestroia
+- Falconeer vs Hawktor: Falconeer is B1, Hawktor is Gundalian Invaders
+
+STEP 5 - SPECIAL EDITIONS:
+- Translucent/Clear = Special Edition or rare variant
+- Pearl/Metallic sheen = Premium variant
+- If G-Power number visible on toy, note it
+
+=== OUTPUT FORMAT ===
+Return ONLY valid JSON (no other text):
 {
-  "name": "[EXACT name from catalog - DO NOT INVENT]",
+  "name": "[EXACT name from catalog above]",
   "series": "[Battle Brawlers/New Vestroia/Gundalian Invaders/Mechtanium Surge]",
   "attribute": "[Pyrus/Aquos/Haos/Darkus/Subterra/Ventus]",
-  "gPower": [number if visible on toy, otherwise estimate 300-450],
-  "releaseYear": "[2007-2012 based on series]",
+  "gPower": [number 300-900 if visible, otherwise estimate based on era],
+  "releaseYear": "[2007/2008/2009/2010/2011/2012]",
   "rarity": "[Common/Rare/Super Rare/Ultra Rare/Special Edition]",
-  "specialFeatures": ["translucent", "pearl", "B1", "B2", "special attack", etc.],
-  "estimatedValue": { "low": [number], "high": [number] },
-  "confidence": [0.0-1.0],
-  "identificationReason": "[Brief explanation of visual features that led to this identification]"
+  "specialFeatures": ["list any: translucent, pearl, B1, B2, special attack"],
+  "estimatedValue": { "low": [dollar amount], "high": [dollar amount] },
+  "confidence": [0.0-1.0 based on image clarity and certainty],
+  "identificationReason": "[2-3 sentences explaining the key visual features you observed that led to this identification]"
 }
 
 VALUATION GUIDE:
-- Common (Pyrus/Darkus Dragonoid, Saurus, etc): $5-15
-- Rare (evolved forms, less common): $15-40
-- Super Rare (Legendary soldiers, Maxus parts): $40-100
-- Ultra Rare (Translucent, Pearl, Limited): $100-300+
+- Common (basic Dragonoid, Saurus, Serpenoid): $5-15
+- Rare (evolved forms like Delta Dragonoid): $15-40
+- Super Rare (Legendary soldiers, unique designs): $40-100
+- Ultra Rare (Translucent, Pearl, Limited runs): $100-300+
 
-IMPORTANT: The name MUST match exactly one entry from the Official Catalog. Do not create fictional names.`,
+CRITICAL: Use ONLY names from the Official Catalog. If uncertain, choose the closest match and reflect uncertainty in confidence score.`,
               },
               {
                 type: "image_url",
@@ -454,7 +462,7 @@ IMPORTANT: The name MUST match exactly one entry from the Official Catalog. Do n
             ],
           },
         ],
-        temperature: 0.7,
+        temperature: 0.3,
         max_tokens: 1024,
       });
 
