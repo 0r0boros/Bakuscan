@@ -18,20 +18,15 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  const [fontsLoaded] = useFonts(
-    Platform.OS === "web" ? { ...Feather.font } : {}
-  );
-  const [appIsReady, setAppIsReady] = useState(false);
+  const isWeb = Platform.OS === "web";
+  const [fontsLoaded] = useFonts(isWeb ? { ...Feather.font } : {});
+  const [appIsReady, setAppIsReady] = useState(!isWeb);
 
   useEffect(() => {
-    if (Platform.OS === "web") {
-      if (fontsLoaded) {
-        setAppIsReady(true);
-      }
-    } else {
+    if (isWeb && fontsLoaded) {
       setAppIsReady(true);
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, isWeb]);
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
