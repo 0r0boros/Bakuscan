@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export interface CorrectionInfo {
+  name: string;
+  attribute: string;
+  gPower: string;
+  treatment: string;
+  correctedAt: string;
+}
+
 export interface ScanResult {
   id: string;
   imageUri: string;
@@ -17,6 +25,7 @@ export interface ScanResult {
   };
   confidence: number;
   scannedAt: string;
+  correction?: CorrectionInfo;
 }
 
 const STORAGE_KEY = "@bakuscan/history";
@@ -93,6 +102,35 @@ export function useScanHistory() {
     await loadHistory();
   }, [loadHistory]);
 
+  const updateScanCorrection = useCallback(async (
+    imageUri: string,
+    correction: { name: string; attribute: string; gPower: string; treatment: string }
+  ) => {
+    const updated = history.map((item) => {
+      if (item.imageUri === imageUri) {
+        return {
+          ...item,
+          name: correction.name,
+          attribute: correction.attribute,
+          gPower: parseInt(correction.gPower) || item.gPower,
+          correction: {
+            ...correction,
+            correctedAt: new Date().toISOString(),
+          },
+        };
+      }
+      return item;
+    });
+
+    setHistory(updated);
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error("Failed to update scan correction:", error);
+    }
+  }, [history]);
+
   return {
     history,
     isLoading,
@@ -101,5 +139,6 @@ export function useScanHistory() {
     clearHistory,
     findByImageUri,
     refreshHistory,
+    updateScanCorrection,
   };
 }

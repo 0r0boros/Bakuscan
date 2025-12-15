@@ -19,9 +19,11 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { CorrectionModal } from "@/components/CorrectionModal";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, AttributeColors, Colors } from "@/constants/theme";
 import { useScanHistory, ScanResult } from "@/hooks/useScanHistory";
+import { useCorrectionHistory, CorrectionData } from "@/hooks/useCorrectionHistory";
 import { analyzeBakugan, BakuganAnalysis } from "@/lib/bakugan-api";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -82,12 +84,15 @@ export default function ScanResultScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
-  const { addToHistory, findByImageUri } = useScanHistory();
+  const { addToHistory, findByImageUri, updateScanCorrection } = useScanHistory();
+  const { addCorrection } = useCorrectionHistory();
   
   const [analysis, setAnalysis] = useState<BakuganAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [isCorrected, setIsCorrected] = useState(false);
 
   const { imageUri } = route.params;
 
@@ -106,6 +111,7 @@ export default function ScanResultScreen() {
         confidence: existingScan.confidence,
       });
       setIsSaved(true);
+      setIsCorrected(!!existingScan.correction);
       setIsLoading(false);
       return;
     }
@@ -173,6 +179,35 @@ export default function ScanResultScreen() {
       setError(err instanceof Error ? err.message : "Failed to analyze image");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCorrection = async (correctionData: CorrectionData) => {
+    if (!analysis) return;
+
+    await addCorrection(
+      imageUri,
+      imageUri,
+      analysis.name,
+      correctionData
+    );
+
+    setAnalysis({
+      ...analysis,
+      name: correctionData.name,
+      attribute: correctionData.attribute,
+      gPower: parseInt(correctionData.gPower) || analysis.gPower,
+    });
+
+    if (isSaved) {
+      await updateScanCorrection(imageUri, correctionData);
+    }
+
+    setIsCorrected(true);
+    setShowCorrectionModal(false);
+
+    if (Platform.OS !== "web") {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
 
@@ -327,8 +362,44 @@ export default function ScanResultScreen() {
             <Feather name="share-2" size={20} color={theme.text} />
             <ThemedText type="body">Share</ThemedText>
           </Pressable>
+
+          <Pressable
+            onPress={() => setShowCorrectionModal(true)}
+            style={({ pressed }) => [
+              styles.correctionButton,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            {isCorrected ? (
+              <>
+                <Feather name="check-circle" size={16} color={theme.success} />
+                <ThemedText type="small" style={{ color: theme.success }}>
+                  Corrected
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <Feather name="edit-3" size={16} color={theme.textSecondary} />
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Not correct? Tap to fix
+                </ThemedText>
+              </>
+            )}
+          </Pressable>
         </View>
       </ScrollView>
+
+      <CorrectionModal
+        visible={showCorrectionModal}
+        onClose={() => setShowCorrectionModal(false)}
+        onSubmit={handleCorrection}
+        initialValues={{
+          name: analysis.name,
+          attribute: analysis.attribute,
+          gPower: analysis.gPower,
+          treatment: isCorrected ? "Standard" : undefined,
+        }}
+      />
     </ThemedView>
   );
 }
@@ -473,5 +544,12 @@ const styles = StyleSheet.create({
     height: Spacing.buttonHeight,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
+  },
+  correctionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
   },
 });

@@ -43,15 +43,31 @@ function HistoryCard({ item, onPress }: { item: ScanResult; onPress: () => void 
   return (
     <Card style={styles.historyCard} onPress={onPress}>
       <View style={styles.cardContent}>
-        <Image
-          source={{ uri: item.imageUri }}
-          style={styles.thumbnail}
-          resizeMode="cover"
-        />
+        <View>
+          <Image
+            source={{ uri: item.imageUri }}
+            style={styles.thumbnail}
+            resizeMode="cover"
+          />
+          {item.correction ? (
+            <View style={[styles.correctedBadge, { backgroundColor: theme.success }]}>
+              <Feather name="check" size={10} color="#FFF" />
+            </View>
+          ) : null}
+        </View>
         <View style={styles.cardInfo}>
-          <ThemedText type="h4" numberOfLines={1}>
-            {item.name}
-          </ThemedText>
+          <View style={styles.nameRow}>
+            <ThemedText type="h4" numberOfLines={1} style={{ flex: 1 }}>
+              {item.name}
+            </ThemedText>
+            {item.correction ? (
+              <View style={[styles.correctedLabel, { backgroundColor: `${theme.success}20` }]}>
+                <ThemedText style={[styles.correctedText, { color: theme.success }]}>
+                  Corrected
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
           <View style={styles.cardMeta}>
             <AttributeBadge attribute={item.attribute} />
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -159,10 +175,34 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     backgroundColor: "#E6E6E6",
   },
+  correctedBadge: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   cardInfo: {
     flex: 1,
     marginLeft: Spacing.md,
     justifyContent: "space-between",
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  correctedLabel: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  correctedText: {
+    fontSize: 9,
+    fontWeight: "600",
   },
   cardMeta: {
     flexDirection: "row",
