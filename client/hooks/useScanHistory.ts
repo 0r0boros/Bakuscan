@@ -61,28 +61,22 @@ export function useScanHistory() {
       scannedAt: new Date().toISOString(),
     };
 
-    const updated = [newScan, ...history];
-    setHistory(updated);
-
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (error) {
-      console.error("Failed to save scan:", error);
-    }
+    setHistory((prev) => {
+      const updated = [newScan, ...prev];
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.error);
+      return updated;
+    });
 
     return newScan;
-  }, [history]);
+  }, []);
 
   const removeFromHistory = useCallback(async (id: string) => {
-    const updated = history.filter((item) => item.id !== id);
-    setHistory(updated);
-
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (error) {
-      console.error("Failed to remove scan:", error);
-    }
-  }, [history]);
+    setHistory((prev) => {
+      const updated = prev.filter((item) => item.id !== id);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.error);
+      return updated;
+    });
+  }, []);
 
   const clearHistory = useCallback(async () => {
     setHistory([]);
@@ -106,30 +100,26 @@ export function useScanHistory() {
     imageUri: string,
     correction: { name: string; attribute: string; gPower: string; treatment: string }
   ) => {
-    const updated = history.map((item) => {
-      if (item.imageUri === imageUri) {
-        return {
-          ...item,
-          name: correction.name,
-          attribute: correction.attribute,
-          gPower: parseInt(correction.gPower) || item.gPower,
-          correction: {
-            ...correction,
-            correctedAt: new Date().toISOString(),
-          },
-        };
-      }
-      return item;
+    setHistory((prev) => {
+      const updated = prev.map((item) => {
+        if (item.imageUri === imageUri) {
+          return {
+            ...item,
+            name: correction.name,
+            attribute: correction.attribute,
+            gPower: parseInt(correction.gPower) || item.gPower,
+            correction: {
+              ...correction,
+              correctedAt: new Date().toISOString(),
+            },
+          };
+        }
+        return item;
+      });
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.error);
+      return updated;
     });
-
-    setHistory(updated);
-
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (error) {
-      console.error("Failed to update scan correction:", error);
-    }
-  }, [history]);
+  }, []);
 
   return {
     history,
