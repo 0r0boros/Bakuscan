@@ -2,7 +2,7 @@
 
 ## Overview
 
-BakuScan is a mobile utility app built with React Native/Expo that allows users to scan and identify Bakugan toys from the original 2007-2012 run. The app uses AI-powered image recognition (Groq Llama 4 Scout Vision) to identify Bakugan toys, determine their series, attribute, rarity, and estimate market value. Users can sign in with Google or Apple to sync their collection across devices, or continue as a guest for local-only storage.
+BakuScan is a Python Flask web application for identifying Bakugan toys from the original 2007-2012 run. The app uses browser-based camera access (WebRTC) for scanning and Groq AI (Llama 4 Scout Vision) for identification. Users can access it from any device's web browser without installing an app.
 
 ## User Preferences
 
@@ -10,145 +10,86 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
-- **Framework**: React Native with Expo SDK 54 (new architecture enabled)
-- **Navigation**: React Navigation v7 with a hybrid tab/stack structure
-  - Bottom tab navigator with 3 tabs (History, Guide, Profile)
-  - Floating action button for camera/scan functionality
-  - Native stack navigators for each tab section
-  - Modal presentations for Camera and Image Preview screens
-- **State Management**: 
-  - React Query (TanStack Query) for server state and API caching
-  - React hooks with AsyncStorage for local persistence
-- **Animations**: React Native Reanimated for smooth animations
-- **Styling**: Custom theme system with light/dark mode support using the device color scheme
+### Application Type
+- **Framework**: Python Flask web application
+- **Frontend**: Server-rendered HTML templates with vanilla JavaScript
+- **Camera Access**: WebRTC/getUserMedia for browser-based camera
+- **Styling**: Custom CSS with dark theme, mobile-responsive design
 
 ### Backend Architecture
-- **Server**: Express.js running on Node.js with TypeScript
-- **API Structure**: RESTful endpoints under `/api/` prefix
-  - `POST /api/analyze` - Main endpoint for Bakugan image analysis
+- **Server**: Flask running on Python 3.11
+- **API Structure**: RESTful endpoints
+  - `POST /api/analyze` - Main endpoint for Bakugan image analysis (accepts base64 image)
+  - `GET /api/history` - Get user's scan history
 - **AI Integration**: Groq API (Llama 4 Scout Vision) for image recognition
-- **Build System**: esbuild for server bundling, tsx for development
+- **Session Management**: Flask sessions with secret key
 
 ### Data Storage
-- **Local Storage**: AsyncStorage for client-side persistence
-  - Scan history stored at `@bakuscan/history`
-  - User settings stored at `@bakuscan/settings`
-- **Database Schema**: Drizzle ORM with PostgreSQL configured (schema defined but primarily using in-memory storage currently)
-- **Authentication**: JWT-based auth with Google/Apple OAuth, optional guest mode for local-only usage
-- **Design Decision**: Hybrid architecture - authenticated users sync to cloud, guests use local storage only
+- **Storage**: In-memory Python dictionaries (session-based)
+- **Catalog**: JSON file at `shared/bakugan_catalog.json` with 147 Bakugan entries
+- **Note**: PostgreSQL database exists but connection times out from Python context - using in-memory storage as workaround
 
-### Key Design Patterns
-- Path aliases (`@/` for client, `@shared/` for shared code) for clean imports
-- Error boundaries with development/production fallback UI
-- Keyboard-aware components with platform-specific implementations
-- Custom hooks for settings, scan history, and theming
-- Reusable themed components (ThemedText, ThemedView, Card, Button)
+### Key Files
+- `python_app/main.py` - Flask application entry point
+- `python_app/templates/index.html` - Main scanning page
+- `python_app/templates/history.html` - Scan history page
+- `python_app/static/style.css` - Application styles
+- `python_app/static/app.js` - Frontend JavaScript for camera and API
+- `shared/bakugan_catalog.json` - Bakugan catalog data
 
-### Navigation Flow
-1. App launches to Login screen (if not authenticated/guest)
-2. User can sign in with Google/Apple or continue as guest
-3. Main app shows History screen (My Collection) with bottom tabs
-4. FAB button opens Camera modal for scanning
-5. Camera captures image → navigates to ScanResult screen
-6. ScanResult calls `/api/analyze` and displays identification
-7. Results saved to local history (guest) or synced to cloud (authenticated)
+### User Flow
+1. User opens app in browser
+2. Grants camera permission or uploads image
+3. Captures/selects image
+4. Image sent to `/api/analyze` as base64
+5. Groq AI analyzes and identifies Bakugan
+6. Results displayed with name, series, attribute, G-power, rarity
+7. Scan saved to session history
 
 ## External Dependencies
 
 ### Third-Party Services
-- **Groq API**: Llama 4 Scout Vision model for Bakugan image recognition and identification (requires `GROQ_API_KEY` environment variable)
+- **Groq API**: Llama 4 Scout Vision model for Bakugan image recognition (requires `GROQ_API_KEY` environment variable)
 
-### Key NPM Packages
-- **expo-camera**: Native camera access for scanning
-- **expo-image-picker**: Gallery image selection
-- **expo-file-system**: Reading images as base64 for API transmission
-- **@react-native-async-storage/async-storage**: Local data persistence
-- **groq-sdk**: Official Groq SDK for vision API calls
-- **drizzle-orm** + **pg**: Database ORM (PostgreSQL configured via `DATABASE_URL`)
-
-### Platform Configuration
-- iOS: Camera and Photo Library usage permissions configured
-- Android: Camera permission, edge-to-edge display enabled
-- Web: Single-page output mode supported
+### Python Packages
+- **flask**: Web framework
+- **groq**: Official Groq SDK for AI vision API
+- **python-dotenv**: Environment variable management
+- **psycopg2-binary**: PostgreSQL driver (not currently used due to connection issues)
 
 ### Environment Variables Required
 - `GROQ_API_KEY`: For Bakugan image analysis (Groq Llama 4 Scout Vision)
-- `EBAY_CLIENT_ID`: eBay Developer API client ID (for real pricing data)
-- `EBAY_CLIENT_SECRET`: eBay Developer API client secret (for real pricing data)
-- `DATABASE_URL`: PostgreSQL connection string (for Drizzle)
-- `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
-- `REPLIT_DEV_DOMAIN`: Development domain for Expo and CORS
-- `SESSION_SECRET`: JWT signing secret (required in production)
-- `EXPO_PUBLIC_GOOGLE_CLIENT_ID`: Google OAuth client ID (optional, for Google Sign-In)
+- `SESSION_SECRET`: Flask session secret key
+- `PORT`: Server port (defaults to 5000)
 
-### eBay Integration
-- Uses eBay Marketplace Insights API to fetch real sold item prices
-- Searches for recently sold Bakugan matching the AI-identified name
-- Displays price range, average, and recent sales in the app
-- Falls back to AI estimates if eBay API is not configured or returns no results
+## Development
 
-### Manual Correction System
-- Users can correct AI misidentifications via "Not correct? Tap to fix" button
-- CorrectionModal with searchable name picker, attribute, G-Power, and treatment pickers
-- Corrections are stored locally with useCorrectionHistory hook
-- Stats track how often specific Bakugan are corrected to different names
-- Smart suggestion banner appears when AI identifies a Bakugan that has been corrected 2+ times before
-- HistoryScreen shows "Corrected" badge for corrected items
+### Running the App
+```bash
+cd python_app && PORT=5000 python main.py
+```
 
-### AI Learning from Corrections
-- The app learns from user corrections to improve future identifications
-- useCorrectionHistory.getCorrectionSummary() returns top N corrections with counts
-- Correction history is sent with each analyze request to the server
-- Server injects "Learned Corrections" section into AI prompt with format: "When image looks like X but corrected to Y (count: N), prefer Y"
-- System waits for AsyncStorage to load corrections before analyzing, ensuring learned data is always included
-- Client BAKUGAN_NAMES catalog synced with full 143-name server catalog for consistency
+### Project Structure
+```
+python_app/
+  main.py           # Flask app with routes and AI integration
+  templates/
+    index.html      # Camera/scan page
+    history.html    # Scan history page
+  static/
+    style.css       # Styles
+    app.js          # Frontend JavaScript
+shared/
+  bakugan_catalog.json  # 147 Bakugan entries
+```
 
-### Authentication System
-- **Providers**: Google OAuth (via expo-auth-session) and Apple Sign-In (via expo-apple-authentication)
-- **Guest Mode**: Users can skip login and use app locally without syncing
-- **JWT Tokens**: Server issues JWT tokens with 30-day expiry for session management
-- **Token Verification**: 
-  - Google: Verifies access token against Google's userinfo API
-  - Apple: Verifies identity token signature using Apple's JWKS endpoint
-- **Storage**: Auth tokens stored in AsyncStorage at `@bakuscan/auth_token` and `@bakuscan/auth_user`
-- **Profile Screen**: Shows account info for authenticated users, sign-in prompt for guests
+### Features
+- Browser camera access (mobile and desktop)
+- Image upload from gallery
+- AI-powered Bakugan identification
+- Session-based scan history
+- Dark theme with mobile-responsive design
 
-### Key Auth Files
-- `client/hooks/useAuth.tsx`: Auth context with login, logout, guest mode
-- `client/screens/LoginScreen.tsx`: Sign-in UI with Google/Apple buttons
-- `server/auth.ts`: Token generation, verification, OAuth handling
-- `shared/schema.ts`: User and Scan database schemas
-
-### Hybrid Identification System (CLIP + LLM)
-The app uses a hybrid approach combining visual similarity search with LLM-based identification:
-
-**Architecture:**
-- **Reference Image Library**: Admin can upload reference photos for each Bakugan variant
-- **CLIP Embeddings**: Images are processed through Replicate's CLIP model (clip-vit-large-patch14) to generate 512-dimensional embeddings
-- **Similarity Search**: When a user scans a Bakugan, the system:
-  1. Generates CLIP embedding for the scanned image
-  2. Compares against all reference image embeddings using cosine similarity
-  3. Aggregates matches by Bakugan variant and returns top 5
-- **Hybrid Analysis**: High-confidence similarity matches (≥70%) are passed as hints to the LLM prompt
-- **LLM Final Decision**: The LLM uses both the catalog knowledge and similarity hints to make the final identification
-
-**Database Tables:**
-- `bakugan_catalog`: 147 entries with name, series, generation, type, description
-- `reference_images`: Uploaded reference photos with CLIP embeddings (vector(512))
-
-**API Endpoints:**
-- `GET /api/admin/catalog`: List all catalog entries with reference counts
-- `GET /api/admin/catalog/:id`: Get catalog entry details with reference images
-- `POST /api/admin/reference-images`: Upload new reference image
-- `DELETE /api/admin/reference-images/:id`: Remove reference image
-- `POST /api/admin/generate-embeddings`: Generate CLIP embeddings for images without them
-- `POST /api/similarity-search`: Search reference library by image
-
-**Environment Variables:**
-- `REPLICATE_API_TOKEN`: Required for CLIP embedding generation (optional - system falls back to LLM-only if not configured)
-
-**Admin UI:**
-- Profile → Reference Image Manager: Upload and manage reference images
-- Shows reference count per catalog entry
-- Allows bulk embedding generation
+### Known Issues
+- PostgreSQL connection times out from Python context
+- History is session-based (in-memory), cleared on server restart
