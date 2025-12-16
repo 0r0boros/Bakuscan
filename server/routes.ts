@@ -9,7 +9,10 @@ import {
   loginOrRegister 
 } from "./auth";
 import { storage } from "./storage";
-import type { InsertScan } from "@shared/schema";
+import { db } from "./db";
+import { bakuganCatalog, referenceImages, type InsertScan } from "@shared/schema";
+import { eq, sql, desc } from "drizzle-orm";
+import { seedCatalog } from "./seed-catalog";
 
 function getGroq() {
   if (!process.env.GROQ_API_KEY) {
@@ -378,6 +381,77 @@ Apply these corrections only when the image features genuinely match the descrip
 `;
 }
 
+async function generateClipEmbedding(imageBase64: string, replicateToken: string): Promise<number[] | null> {
+  try {
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${replicateToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        version: "75b33f253f7714a281ad3e9b28f63e3232d583716ef6718f2e46641077ea040a",
+        input: {
+          image: `data:image/jpeg;base64,${imageBase64}`,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[CLIP] Failed to create prediction:', await response.text());
+      return null;
+    }
+
+    const prediction = await response.json();
+    let result = prediction;
+
+    while (result.status !== 'succeeded' && result.status !== 'failed') {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const statusResponse = await fetch(result.urls.get, {
+        headers: { 'Authorization': `Token ${replicateToken}` },
+      });
+      result = await statusResponse.json();
+    }
+
+    if (result.status === 'failed') {
+      console.error('[CLIP] Prediction failed:', result.error);
+      return null;
+    }
+
+    if (result.output && Array.isArray(result.output)) {
+      return result.output;
+    }
+    
+    if (result.output && result.output.embedding) {
+      return result.output.embedding;
+    }
+
+    console.error('[CLIP] Unexpected output format:', result.output);
+    return null;
+  } catch (error) {
+    console.error('[CLIP] Error generating embedding:', error);
+    return null;
+  }
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  if (normA === 0 || normB === 0) return 0;
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
 function buildCatalogByCategory(): string {
   const byCategory: { [key: string]: typeof BAKUGAN_CATALOG } = {};
   
@@ -687,6 +761,253 @@ OUTPUT: Return ONLY this JSON format:
     }
   });
 
+  // ============ ADMIN CATALOG ROUTES ============
+
+  app.get("/api/admin/catalog", async (req, res) => {
+    try {
+      const catalog = await db.select().from(bakuganCatalog).orderBy(bakuganCatalog.name);
+      res.json({ catalog });
+    } catch (error) {
+      console.error("Get catalog error:", error);
+      res.status(500).json({ error: "Failed to get catalog" });
+    }
+  });
+
+  app.get("/api/admin/catalog/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [entry] = await db.select().from(bakuganCatalog).where(eq(bakuganCatalog.id, id));
+      
+      if (!entry) {
+        return res.status(404).json({ error: "Bakugan not found" });
+      }
+
+      const images = await db.select().from(referenceImages)
+        .where(eq(referenceImages.bakuganId, id))
+        .orderBy(desc(referenceImages.createdAt));
+
+      res.json({ entry, images });
+    } catch (error) {
+      console.error("Get catalog entry error:", error);
+      res.status(500).json({ error: "Failed to get catalog entry" });
+    }
+  });
+
+  // ============ REFERENCE IMAGE ROUTES ============
+
+  app.post("/api/admin/reference-images", async (req, res) => {
+    try {
+      const { bakuganId, imageData, angle, lighting, source } = req.body;
+
+      if (!bakuganId || !imageData) {
+        return res.status(400).json({ error: "bakuganId and imageData are required" });
+      }
+
+      const [bakugan] = await db.select().from(bakuganCatalog).where(eq(bakuganCatalog.id, bakuganId));
+      if (!bakugan) {
+        return res.status(404).json({ error: "Bakugan not found in catalog" });
+      }
+
+      const [newImage] = await db.insert(referenceImages).values({
+        bakuganId,
+        imageData,
+        angle: angle || "front",
+        lighting: lighting || "normal",
+        source: source || "manual_upload",
+        isApproved: true,
+      }).returning();
+
+      await db.update(bakuganCatalog)
+        .set({ 
+          referenceCount: sql`${bakuganCatalog.referenceCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(bakuganCatalog.id, bakuganId));
+
+      console.log(`[Admin] Added reference image for ${bakugan.name}`);
+
+      res.json({ image: newImage });
+    } catch (error) {
+      console.error("Add reference image error:", error);
+      res.status(500).json({ error: "Failed to add reference image" });
+    }
+  });
+
+  app.delete("/api/admin/reference-images/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const [image] = await db.select().from(referenceImages).where(eq(referenceImages.id, id));
+      if (!image) {
+        return res.status(404).json({ error: "Reference image not found" });
+      }
+
+      await db.delete(referenceImages).where(eq(referenceImages.id, id));
+
+      await db.update(bakuganCatalog)
+        .set({ 
+          referenceCount: sql`GREATEST(${bakuganCatalog.referenceCount} - 1, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(bakuganCatalog.id, image.bakuganId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete reference image error:", error);
+      res.status(500).json({ error: "Failed to delete reference image" });
+    }
+  });
+
+  // ============ EMBEDDING & SIMILARITY ROUTES ============
+
+  app.post("/api/admin/generate-embeddings", async (req, res) => {
+    try {
+      const replicateToken = process.env.REPLICATE_API_TOKEN;
+      if (!replicateToken) {
+        return res.status(400).json({ 
+          error: "REPLICATE_API_TOKEN not configured. Add it to secrets to enable embeddings." 
+        });
+      }
+
+      const imagesWithoutEmbeddings = await db.select()
+        .from(referenceImages)
+        .where(sql`${referenceImages.embedding} IS NULL`)
+        .limit(10);
+
+      if (imagesWithoutEmbeddings.length === 0) {
+        return res.json({ message: "All reference images already have embeddings", processed: 0 });
+      }
+
+      let processed = 0;
+      for (const image of imagesWithoutEmbeddings) {
+        try {
+          const embedding = await generateClipEmbedding(image.imageData, replicateToken);
+          if (embedding) {
+            await db.update(referenceImages)
+              .set({ 
+                embedding: embedding,
+                embeddingModel: "clip-vit-large-patch14",
+              })
+              .where(eq(referenceImages.id, image.id));
+            processed++;
+          }
+        } catch (embError) {
+          console.error(`[Embed] Failed to generate embedding for image ${image.id}:`, embError);
+        }
+      }
+
+      res.json({ 
+        message: `Generated embeddings for ${processed} images`, 
+        processed,
+        remaining: imagesWithoutEmbeddings.length - processed,
+      });
+    } catch (error) {
+      console.error("Generate embeddings error:", error);
+      res.status(500).json({ error: "Failed to generate embeddings" });
+    }
+  });
+
+  app.post("/api/similarity-search", async (req, res) => {
+    try {
+      const { image } = req.body;
+      if (!image) {
+        return res.status(400).json({ error: "Image is required" });
+      }
+
+      const replicateToken = process.env.REPLICATE_API_TOKEN;
+      if (!replicateToken) {
+        return res.json({ 
+          available: false,
+          message: "Similarity search not available - REPLICATE_API_TOKEN not configured",
+          matches: [],
+        });
+      }
+
+      const refImagesWithEmbeddings = await db.select({
+        id: referenceImages.id,
+        bakuganId: referenceImages.bakuganId,
+        embedding: referenceImages.embedding,
+      }).from(referenceImages)
+        .where(sql`${referenceImages.embedding} IS NOT NULL`);
+
+      if (refImagesWithEmbeddings.length === 0) {
+        return res.json({ 
+          available: false,
+          message: "No reference images with embeddings available yet",
+          matches: [],
+        });
+      }
+
+      const queryEmbedding = await generateClipEmbedding(image, replicateToken);
+      if (!queryEmbedding) {
+        return res.status(500).json({ error: "Failed to generate query embedding" });
+      }
+
+      const similarities: Array<{
+        bakuganId: string;
+        similarity: number;
+        imageId: string;
+      }> = [];
+
+      for (const refImage of refImagesWithEmbeddings) {
+        if (refImage.embedding) {
+          const similarity = cosineSimilarity(queryEmbedding, refImage.embedding);
+          similarities.push({
+            bakuganId: refImage.bakuganId,
+            similarity,
+            imageId: refImage.id,
+          });
+        }
+      }
+
+      similarities.sort((a, b) => b.similarity - a.similarity);
+
+      const bakuganScores: Record<string, { totalSimilarity: number; count: number }> = {};
+      for (const sim of similarities) {
+        if (!bakuganScores[sim.bakuganId]) {
+          bakuganScores[sim.bakuganId] = { totalSimilarity: 0, count: 0 };
+        }
+        bakuganScores[sim.bakuganId].totalSimilarity += sim.similarity;
+        bakuganScores[sim.bakuganId].count++;
+      }
+
+      const aggregatedScores = Object.entries(bakuganScores)
+        .map(([bakuganId, scores]) => ({
+          bakuganId,
+          averageSimilarity: scores.totalSimilarity / scores.count,
+          matchCount: scores.count,
+        }))
+        .sort((a, b) => b.averageSimilarity - a.averageSimilarity)
+        .slice(0, 5);
+
+      const matches = await Promise.all(
+        aggregatedScores.map(async (score) => {
+          const [bakugan] = await db.select().from(bakuganCatalog)
+            .where(eq(bakuganCatalog.id, score.bakuganId));
+          return {
+            name: bakugan?.name || "Unknown",
+            series: bakugan?.series || "Unknown",
+            generation: bakugan?.generation || "Unknown",
+            confidence: Math.round(score.averageSimilarity * 100),
+            matchCount: score.matchCount,
+          };
+        })
+      );
+
+      res.json({
+        available: true,
+        matches,
+        totalReferenceImages: refImagesWithEmbeddings.length,
+      });
+    } catch (error) {
+      console.error("Similarity search error:", error);
+      res.status(500).json({ error: "Failed to perform similarity search" });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  seedCatalog().catch(console.error);
+  
   return httpServer;
 }
