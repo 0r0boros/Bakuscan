@@ -2,12 +2,15 @@ import os
 import json
 import base64
 import uuid
+import threading
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session
 from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
+
+from scraper import get_market_data, scrape_ebay_prices, scrape_reference_images
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SESSION_SECRET', 'dev-secret-key')
@@ -152,6 +155,60 @@ def api_history():
         'description': s['description'],
         'created_at': s['created_at'].isoformat() if s.get('created_at') else None
     } for s in scans])
+
+
+@app.route('/api/market-data', methods=['GET'])
+def api_market_data():
+    """Get market data (pricing and reference images) for a Bakugan"""
+    bakugan_name = request.args.get('name')
+    attribute = request.args.get('attribute')
+    
+    if not bakugan_name:
+        return jsonify({'error': 'Bakugan name is required'}), 400
+    
+    try:
+        market_data = get_market_data(bakugan_name, attribute)
+        return jsonify(market_data)
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'bakugan_name': bakugan_name,
+            'pricing': {'success': False, 'error': str(e)},
+            'images': {'success': False, 'error': str(e)}
+        })
+
+
+@app.route('/api/prices', methods=['GET'])
+def api_prices():
+    """Get eBay sold prices for a Bakugan"""
+    bakugan_name = request.args.get('name')
+    attribute = request.args.get('attribute')
+    
+    if not bakugan_name:
+        return jsonify({'error': 'Bakugan name is required'}), 400
+    
+    try:
+        pricing = scrape_ebay_prices(bakugan_name, attribute)
+        return jsonify(pricing)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/images', methods=['GET'])
+def api_images():
+    """Get reference images for a Bakugan"""
+    bakugan_name = request.args.get('name')
+    attribute = request.args.get('attribute')
+    
+    if not bakugan_name:
+        return jsonify({'error': 'Bakugan name is required'}), 400
+    
+    try:
+        images = scrape_reference_images(bakugan_name, attribute)
+        return jsonify(images)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 if __name__ == '__main__':
     print("BakuScan Python server starting...")

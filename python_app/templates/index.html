@@ -66,6 +66,31 @@
             
             <button id="scanAgainBtn" class="btn btn-primary btn-full">Scan Another</button>
         </div>
+        
+        <div id="marketSection" class="market-section" style="display: none;">
+            <div id="marketLoading" class="market-loading" style="display: none;">
+                <div class="loading-spinner small"></div>
+                <p>Looking up market data...</p>
+            </div>
+            <div id="pricingData" class="pricing-section" style="display: none;">
+                <h3>Market Value</h3>
+                <div class="price-summary">
+                    <div class="price-main">
+                        <span class="price-label">Average Price</span>
+                        <span id="avgPrice" class="price-value">-</span>
+                    </div>
+                    <div class="price-details">
+                        <span id="priceRange" class="price-range">-</span>
+                        <span id="numListings" class="listing-count">-</span>
+                    </div>
+                </div>
+                <div id="recentListings" class="recent-listings"></div>
+            </div>
+            <div id="referenceImages" class="images-section" style="display: none;">
+                <h3>Reference Images</h3>
+                <div id="imagesGrid" class="images-grid"></div>
+            </div>
+        </div>
     </div>
     
     <div id="loadingOverlay" class="loading-overlay" style="display: none;">
