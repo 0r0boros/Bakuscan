@@ -19,6 +19,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useScanHistory } from "@/hooks/useScanHistory";
+import { useAuth } from "@/hooks/useAuth";
 
 const AVATARS = [
   { id: "sphere", icon: "circle" as const },
@@ -128,9 +129,14 @@ export default function ProfileScreen() {
   const { theme } = useTheme();
   const { settings, updateSettings } = useUserSettings();
   const { history } = useScanHistory();
+  const { user, logout, isGuest } = useAuth();
   
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   useEffect(() => {
     setDisplayName(settings.displayName);
@@ -264,6 +270,46 @@ export default function ProfileScreen() {
           <SettingsRow icon="shield" title="Privacy Policy" />
           <SettingsRow icon="file-text" title="Terms of Service" />
         </Card>
+
+        <Card style={styles.settingsCard}>
+          <ThemedText type="h4" style={styles.sectionTitle}>Account</ThemedText>
+          {user ? (
+            <>
+              <SettingsRow 
+                icon="user" 
+                title={user.email || user.displayName || "User"} 
+                value={user.provider === "google" ? "Google" : user.provider === "apple" ? "Apple" : ""} 
+              />
+              <Pressable
+                style={[styles.logoutButton, { backgroundColor: theme.error }]}
+                onPress={handleLogout}
+              >
+                <Feather name="log-out" size={18} color="#FFF" />
+                <ThemedText style={styles.logoutText}>Sign Out</ThemedText>
+              </Pressable>
+            </>
+          ) : isGuest ? (
+            <>
+              <SettingsRow 
+                icon="user" 
+                title="Guest User" 
+                value="Local only" 
+              />
+              <View style={styles.guestInfo}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Sign in to sync your collection across devices
+                </ThemedText>
+              </View>
+              <Pressable
+                style={[styles.signInButton, { backgroundColor: theme.primary }]}
+                onPress={handleLogout}
+              >
+                <Feather name="log-in" size={18} color="#FFF" />
+                <ThemedText style={styles.logoutText}>Sign In</ThemedText>
+              </Pressable>
+            </>
+          ) : null}
+        </Card>
       </KeyboardAwareScrollViewCompat>
     </ThemedView>
   );
@@ -354,5 +400,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.sm,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  logoutText: {
+    color: "#FFF",
+    fontWeight: "600",
+  },
+  guestInfo: {
+    paddingVertical: Spacing.md,
+  },
+  signInButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
   },
 });

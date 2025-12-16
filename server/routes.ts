@@ -1,6 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import Groq from "groq-sdk";
+import { 
+  AuthRequest, 
+  authMiddleware, 
+  verifyGoogleToken, 
+  verifyAppleIdToken, 
+  loginOrRegister 
+} from "./auth";
+import { storage } from "./storage";
+import type { InsertScan } from "@shared/schema";
 
 function getGroq() {
   if (!process.env.GROQ_API_KEY) {
@@ -370,6 +379,158 @@ If the image matches one of these patterns, strongly prefer the corrected name.
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ============ AUTH ROUTES ============
+  
+  app.post("/api/auth/google", async (req, res) => {
+    try {
+      const { accessToken } = req.body;
+      
+      if (!accessToken) {
+        return res.status(400).json({ error: "Access token required" });
+      }
+
+      const googleUser = await verifyGoogleToken(accessToken);
+      if (!googleUser) {
+        return res.status(401).json({ error: "Invalid Google token" });
+      }
+
+      const { user, token, isNewUser } = await loginOrRegister(
+        "google",
+        googleUser.sub,
+        googleUser.email,
+        googleUser.name,
+        googleUser.picture
+      );
+
+      res.json({ user, token, isNewUser });
+    } catch (error) {
+      console.error("Google auth error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  app.post("/api/auth/apple", async (req, res) => {
+    try {
+      const { identityToken, fullName, email: providedEmail } = req.body;
+      
+      if (!identityToken) {
+        return res.status(400).json({ error: "Identity token required" });
+      }
+
+      const applePayload = await verifyAppleIdToken(identityToken);
+      if (!applePayload) {
+        return res.status(401).json({ error: "Invalid or expired Apple token" });
+      }
+
+      const email = providedEmail || applePayload.email;
+      if (!email) {
+        return res.status(400).json({ error: "Email not provided" });
+      }
+
+      const displayName = fullName 
+        ? [fullName.givenName, fullName.familyName].filter(Boolean).join(" ")
+        : undefined;
+
+      const { user, token, isNewUser } = await loginOrRegister(
+        "apple",
+        applePayload.sub,
+        email,
+        displayName
+      );
+
+      res.json({ user, token, isNewUser });
+    } catch (error) {
+      console.error("Apple auth error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  app.get("/api/auth/me", authMiddleware, async (req: AuthRequest, res) => {
+    res.json({ user: req.user });
+  });
+
+  // ============ SCAN ROUTES ============
+
+  app.get("/api/scans", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const scans = await storage.getScans(req.userId!);
+      res.json({ scans });
+    } catch (error) {
+      console.error("Get scans error:", error);
+      res.status(500).json({ error: "Failed to get scans" });
+    }
+  });
+
+  app.post("/api/scans", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const scanData = req.body as Omit<InsertScan, "userId">;
+      const scan = await storage.createScan({
+        ...scanData,
+        userId: req.userId!,
+      });
+      res.json({ scan });
+    } catch (error) {
+      console.error("Create scan error:", error);
+      res.status(500).json({ error: "Failed to create scan" });
+    }
+  });
+
+  app.put("/api/scans/:id", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const scan = await storage.updateScan(id, req.userId!, updates);
+      
+      if (!scan) {
+        return res.status(404).json({ error: "Scan not found" });
+      }
+      
+      res.json({ scan });
+    } catch (error) {
+      console.error("Update scan error:", error);
+      res.status(500).json({ error: "Failed to update scan" });
+    }
+  });
+
+  app.delete("/api/scans/:id", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteScan(id, req.userId!);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Scan not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete scan error:", error);
+      res.status(500).json({ error: "Failed to delete scan" });
+    }
+  });
+
+  app.post("/api/scans/sync", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { scans: localScans } = req.body as { scans: Omit<InsertScan, "userId">[] };
+      
+      if (!Array.isArray(localScans)) {
+        return res.status(400).json({ error: "Invalid scans data" });
+      }
+
+      const scansWithUser = localScans.map(scan => ({
+        ...scan,
+        userId: req.userId!,
+      }));
+
+      const createdScans = await storage.createScans(scansWithUser);
+      res.json({ scans: createdScans, synced: createdScans.length });
+    } catch (error) {
+      console.error("Sync scans error:", error);
+      res.status(500).json({ error: "Failed to sync scans" });
+    }
+  });
+
+  // ============ ANALYZE ROUTE ============
+
   app.post("/api/analyze", async (req, res) => {
     try {
       const { image, corrections } = req.body as { image?: string; corrections?: CorrectionHint[] };

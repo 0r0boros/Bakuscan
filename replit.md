@@ -2,7 +2,7 @@
 
 ## Overview
 
-BakuScan is a mobile utility app built with React Native/Expo that allows users to scan and identify Bakugan toys from the original 2007-2012 run. The app uses AI-powered image recognition (Groq Llama 4 Scout Vision) to identify Bakugan toys, determine their series, attribute, rarity, and estimate market value. Users can maintain a local scan history and customize their experience through profile settings.
+BakuScan is a mobile utility app built with React Native/Expo that allows users to scan and identify Bakugan toys from the original 2007-2012 run. The app uses AI-powered image recognition (Groq Llama 4 Scout Vision) to identify Bakugan toys, determine their series, attribute, rarity, and estimate market value. Users can sign in with Google or Apple to sync their collection across devices, or continue as a guest for local-only storage.
 
 ## User Preferences
 
@@ -35,7 +35,8 @@ Preferred communication style: Simple, everyday language.
   - Scan history stored at `@bakuscan/history`
   - User settings stored at `@bakuscan/settings`
 - **Database Schema**: Drizzle ORM with PostgreSQL configured (schema defined but primarily using in-memory storage currently)
-- **Design Decision**: Local-first architecture without authentication - the app is a utility tool where data stays on the device
+- **Authentication**: JWT-based auth with Google/Apple OAuth, optional guest mode for local-only usage
+- **Design Decision**: Hybrid architecture - authenticated users sync to cloud, guests use local storage only
 
 ### Key Design Patterns
 - Path aliases (`@/` for client, `@shared/` for shared code) for clean imports
@@ -45,11 +46,13 @@ Preferred communication style: Simple, everyday language.
 - Reusable themed components (ThemedText, ThemedView, Card, Button)
 
 ### Navigation Flow
-1. App launches to History screen (My Collection)
-2. FAB button opens Camera modal for scanning
-3. Camera captures image → navigates to ScanResult screen
-4. ScanResult calls `/api/analyze` and displays identification
-5. Results saved to local history
+1. App launches to Login screen (if not authenticated/guest)
+2. User can sign in with Google/Apple or continue as guest
+3. Main app shows History screen (My Collection) with bottom tabs
+4. FAB button opens Camera modal for scanning
+5. Camera captures image → navigates to ScanResult screen
+6. ScanResult calls `/api/analyze` and displays identification
+7. Results saved to local history (guest) or synced to cloud (authenticated)
 
 ## External Dependencies
 
@@ -76,6 +79,8 @@ Preferred communication style: Simple, everyday language.
 - `DATABASE_URL`: PostgreSQL connection string (for Drizzle)
 - `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
 - `REPLIT_DEV_DOMAIN`: Development domain for Expo and CORS
+- `SESSION_SECRET`: JWT signing secret (required in production)
+- `EXPO_PUBLIC_GOOGLE_CLIENT_ID`: Google OAuth client ID (optional, for Google Sign-In)
 
 ### eBay Integration
 - Uses eBay Marketplace Insights API to fetch real sold item prices
@@ -98,3 +103,19 @@ Preferred communication style: Simple, everyday language.
 - Server injects "Learned Corrections" section into AI prompt with format: "When image looks like X but corrected to Y (count: N), prefer Y"
 - System waits for AsyncStorage to load corrections before analyzing, ensuring learned data is always included
 - Client BAKUGAN_NAMES catalog synced with full 143-name server catalog for consistency
+
+### Authentication System
+- **Providers**: Google OAuth (via expo-auth-session) and Apple Sign-In (via expo-apple-authentication)
+- **Guest Mode**: Users can skip login and use app locally without syncing
+- **JWT Tokens**: Server issues JWT tokens with 30-day expiry for session management
+- **Token Verification**: 
+  - Google: Verifies access token against Google's userinfo API
+  - Apple: Verifies identity token signature using Apple's JWKS endpoint
+- **Storage**: Auth tokens stored in AsyncStorage at `@bakuscan/auth_token` and `@bakuscan/auth_user`
+- **Profile Screen**: Shows account info for authenticated users, sign-in prompt for guests
+
+### Key Auth Files
+- `client/hooks/useAuth.tsx`: Auth context with login, logout, guest mode
+- `client/screens/LoginScreen.tsx`: Sign-in UI with Google/Apple buttons
+- `server/auth.ts`: Token generation, verification, OAuth handling
+- `shared/schema.ts`: User and Scan database schemas
