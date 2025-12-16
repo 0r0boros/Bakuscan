@@ -31,7 +31,20 @@ export interface BakuganAnalysis {
   ebayData?: EbayData;
 }
 
-export async function analyzeBakugan(imageUri: string): Promise<BakuganAnalysis> {
+export interface CorrectionHint {
+  originalName: string;
+  correctedName: string;
+  count: number;
+}
+
+export interface AnalyzeOptions {
+  corrections?: CorrectionHint[];
+}
+
+export async function analyzeBakugan(
+  imageUri: string,
+  options?: AnalyzeOptions
+): Promise<BakuganAnalysis> {
   try {
     let base64Image: string;
 
@@ -55,6 +68,7 @@ export async function analyzeBakugan(imageUri: string): Promise<BakuganAnalysis>
 
     const response = await apiRequest("POST", "/api/analyze", {
       image: base64Image,
+      corrections: options?.corrections,
     });
 
     const result = await response.json();

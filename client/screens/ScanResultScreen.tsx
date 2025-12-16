@@ -85,7 +85,7 @@ export default function ScanResultScreen() {
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
   const { addToHistory, findByImageUri, updateScanCorrection } = useScanHistory();
-  const { addCorrection, getSuggestedCorrection } = useCorrectionHistory();
+  const { addCorrection, getSuggestedCorrection, getCorrectionSummary, isLoading: correctionsLoading } = useCorrectionHistory();
   
   const [analysis, setAnalysis] = useState<BakuganAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,11 +118,18 @@ export default function ScanResultScreen() {
       return;
     }
 
+    if (correctionsLoading) {
+      return;
+    }
+
     async function analyze() {
       try {
         setIsLoading(true);
         setError(null);
-        const result = await analyzeBakugan(imageUri);
+        const correctionSummary = getCorrectionSummary(10);
+        const result = await analyzeBakugan(imageUri, {
+          corrections: correctionSummary.corrections,
+        });
         setAnalysis(result);
         
         setSuggestionDismissed(false);
@@ -147,7 +154,7 @@ export default function ScanResultScreen() {
     }
 
     analyze();
-  }, [imageUri, getSuggestedCorrection]);
+  }, [imageUri, correctionsLoading, getCorrectionSummary, getSuggestedCorrection]);
 
   const handleSave = async () => {
     if (!analysis) return;
@@ -183,7 +190,10 @@ export default function ScanResultScreen() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await analyzeBakugan(imageUri);
+      const correctionSummary = getCorrectionSummary(10);
+      const result = await analyzeBakugan(imageUri, {
+        corrections: correctionSummary.corrections,
+      });
       setAnalysis(result);
       
       setSuggestionDismissed(false);

@@ -340,10 +340,39 @@ const BAKUGAN_DATABASE = {
   rarities: ["Common", "Rare", "Super Rare", "Ultra Rare", "Special Edition"],
 };
 
+interface CorrectionHint {
+  originalName: string;
+  correctedName: string;
+  count: number;
+}
+
+function buildCorrectionSection(corrections: CorrectionHint[] | undefined): string {
+  if (!corrections || corrections.length === 0) {
+    return '';
+  }
+  
+  const correctionLines = corrections
+    .filter(c => c.count >= 1)
+    .slice(0, 10)
+    .map(c => `- When image resembles "${c.originalName}", consider "${c.correctedName}" instead (corrected ${c.count}x)`)
+    .join('\n');
+  
+  if (!correctionLines) return '';
+  
+  return `
+
+=== LEARNED CORRECTIONS ===
+Users have previously corrected these identifications. Use this feedback to improve accuracy:
+${correctionLines}
+
+If the image matches one of these patterns, strongly prefer the corrected name.
+`;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/analyze", async (req, res) => {
     try {
-      const { image } = req.body;
+      const { image, corrections } = req.body as { image?: string; corrections?: CorrectionHint[] };
 
       if (!image) {
         return res.status(400).json({ error: "No image provided" });
@@ -355,6 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const catalogList = BAKUGAN_CATALOG.map(b => `- ${b.name} (${b.series}): ${b.description}`).join('\n');
+      const correctionSection = buildCorrectionSection(corrections);
 
       const response = await groq.chat.completions.create({
         model: "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -450,7 +480,7 @@ VALUATION GUIDE:
 - Rare (evolved forms like Delta Dragonoid): $15-40
 - Super Rare (Legendary soldiers, unique designs): $40-100
 - Ultra Rare (Translucent, Pearl, Limited runs): $100-300+
-
+${correctionSection}
 CRITICAL: Use ONLY names from the Official Catalog. If uncertain, choose the closest match and reflect uncertainty in confidence score.`,
               },
               {

@@ -22,6 +22,17 @@ export interface CorrectionStats {
   };
 }
 
+export interface CorrectionSummaryItem {
+  originalName: string;
+  correctedName: string;
+  count: number;
+}
+
+export interface CorrectionSummary {
+  corrections: CorrectionSummaryItem[];
+  totalCorrections: number;
+}
+
 const CORRECTIONS_KEY = "@bakuscan/corrections";
 const STATS_KEY = "@bakuscan/correction_stats";
 
@@ -125,6 +136,25 @@ export function useCorrectionHistory() {
     }
   }, []);
 
+  const getCorrectionSummary = useCallback((maxItems: number = 10): CorrectionSummary => {
+    const items: CorrectionSummaryItem[] = [];
+    
+    for (const [originalName, correctedNames] of Object.entries(stats)) {
+      for (const [correctedName, count] of Object.entries(correctedNames)) {
+        if (originalName !== correctedName && count >= 1) {
+          items.push({ originalName, correctedName, count });
+        }
+      }
+    }
+    
+    items.sort((a, b) => b.count - a.count);
+    
+    return {
+      corrections: items.slice(0, maxItems),
+      totalCorrections: corrections.length,
+    };
+  }, [stats, corrections.length]);
+
   return {
     corrections,
     stats,
@@ -133,5 +163,6 @@ export function useCorrectionHistory() {
     getCorrectionForScan,
     getSuggestedCorrection,
     clearAllCorrections,
+    getCorrectionSummary,
   };
 }
