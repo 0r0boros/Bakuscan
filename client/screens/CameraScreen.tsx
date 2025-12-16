@@ -5,11 +5,13 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
@@ -32,6 +34,68 @@ import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const RETICLE_SIZE = 250;
+
+async function cropToReticle(imageUri: string): Promise<string> {
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  
+  const manipResult = await ImageManipulator.manipulateAsync(
+    imageUri,
+    [],
+    { format: ImageManipulator.SaveFormat.JPEG }
+  );
+  
+  const imageWidth = manipResult.width;
+  const imageHeight = manipResult.height;
+  
+  const screenAspect = screenWidth / screenHeight;
+  const imageAspect = imageWidth / imageHeight;
+  
+  let visibleWidth: number;
+  let visibleHeight: number;
+  let offsetX = 0;
+  let offsetY = 0;
+  
+  if (imageAspect > screenAspect) {
+    visibleHeight = imageHeight;
+    visibleWidth = imageHeight * screenAspect;
+    offsetX = (imageWidth - visibleWidth) / 2;
+  } else {
+    visibleWidth = imageWidth;
+    visibleHeight = imageWidth / screenAspect;
+    offsetY = (imageHeight - visibleHeight) / 2;
+  }
+  
+  const reticleInImageWidth = (RETICLE_SIZE / screenWidth) * visibleWidth;
+  const reticleInImageHeight = (RETICLE_SIZE / screenHeight) * visibleHeight;
+  
+  const cropSize = Math.floor(Math.min(reticleInImageWidth, reticleInImageHeight));
+  
+  const originX = Math.floor(offsetX + (visibleWidth - cropSize) / 2);
+  const originY = Math.floor(offsetY + (visibleHeight - cropSize) / 2);
+  
+  const safeOriginX = Math.max(0, Math.min(originX, imageWidth - cropSize));
+  const safeOriginY = Math.max(0, Math.min(originY, imageHeight - cropSize));
+  const safeCropSize = Math.min(cropSize, imageWidth - safeOriginX, imageHeight - safeOriginY);
+  
+  const croppedResult = await ImageManipulator.manipulateAsync(
+    imageUri,
+    [
+      {
+        crop: {
+          originX: safeOriginX,
+          originY: safeOriginY,
+          width: safeCropSize,
+          height: safeCropSize,
+        },
+      },
+    ],
+    { format: ImageManipulator.SaveFormat.JPEG, compress: 0.8 }
+  );
+  
+  return croppedResult.uri;
+}
 
 function ScanReticle() {
   const scale = useSharedValue(1);
@@ -124,7 +188,8 @@ export default function CameraScreen() {
       });
       
       if (photo?.uri) {
-        navigation.replace("ScanResult", { imageUri: photo.uri });
+        const croppedUri = await cropToReticle(photo.uri);
+        navigation.replace("ScanResult", { imageUri: croppedUri });
       }
     } catch (error) {
       console.error("Failed to capture photo:", error);
@@ -291,8 +356,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   reticle: {
-    width: 250,
-    height: 250,
+    width: RETICLE_SIZE,
+    height: RETICLE_SIZE,
     position: "relative",
   },
   reticleCorner: {
