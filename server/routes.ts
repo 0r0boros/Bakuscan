@@ -452,6 +452,115 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+interface SimilarityMatch {
+  name: string;
+  series: string;
+  generation: string;
+  confidence: number;
+  matchCount: number;
+}
+
+async function performSimilaritySearch(imageBase64: string): Promise<{
+  available: boolean;
+  matches: SimilarityMatch[];
+  message?: string;
+}> {
+  const replicateToken = process.env.REPLICATE_API_TOKEN;
+  if (!replicateToken) {
+    return { available: false, matches: [], message: "REPLICATE_API_TOKEN not configured" };
+  }
+
+  try {
+    const refImagesWithEmbeddings = await db.select({
+      id: referenceImages.id,
+      bakuganId: referenceImages.bakuganId,
+      embedding: referenceImages.embedding,
+    }).from(referenceImages)
+      .where(sql`${referenceImages.embedding} IS NOT NULL`);
+
+    if (refImagesWithEmbeddings.length === 0) {
+      return { available: false, matches: [], message: "No reference images with embeddings available" };
+    }
+
+    const queryEmbedding = await generateClipEmbedding(imageBase64, replicateToken);
+    if (!queryEmbedding) {
+      return { available: false, matches: [], message: "Failed to generate embedding" };
+    }
+
+    const similarities: Array<{
+      bakuganId: string;
+      similarity: number;
+    }> = [];
+
+    for (const refImage of refImagesWithEmbeddings) {
+      if (refImage.embedding) {
+        const similarity = cosineSimilarity(queryEmbedding, refImage.embedding);
+        similarities.push({
+          bakuganId: refImage.bakuganId,
+          similarity,
+        });
+      }
+    }
+
+    const bakuganScores: Record<string, { totalSimilarity: number; count: number }> = {};
+    for (const sim of similarities) {
+      if (!bakuganScores[sim.bakuganId]) {
+        bakuganScores[sim.bakuganId] = { totalSimilarity: 0, count: 0 };
+      }
+      bakuganScores[sim.bakuganId].totalSimilarity += sim.similarity;
+      bakuganScores[sim.bakuganId].count++;
+    }
+
+    const aggregatedScores = Object.entries(bakuganScores)
+      .map(([bakuganId, scores]) => ({
+        bakuganId,
+        averageSimilarity: scores.totalSimilarity / scores.count,
+        matchCount: scores.count,
+      }))
+      .sort((a, b) => b.averageSimilarity - a.averageSimilarity)
+      .slice(0, 5);
+
+    const matches = await Promise.all(
+      aggregatedScores.map(async (score) => {
+        const [bakugan] = await db.select().from(bakuganCatalog)
+          .where(eq(bakuganCatalog.id, score.bakuganId));
+        return {
+          name: bakugan?.name || "Unknown",
+          series: bakugan?.series || "Unknown",
+          generation: bakugan?.generation || "Unknown",
+          confidence: Math.round(score.averageSimilarity * 100),
+          matchCount: score.matchCount,
+        };
+      })
+    );
+
+    return { available: true, matches };
+  } catch (error) {
+    console.error("[Similarity] Error:", error);
+    return { available: false, matches: [], message: "Similarity search failed" };
+  }
+}
+
+function buildSimilarityHintSection(matches: SimilarityMatch[]): string {
+  if (matches.length === 0) return "";
+
+  const highConfidenceMatches = matches.filter(m => m.confidence >= 70);
+  if (highConfidenceMatches.length === 0) return "";
+
+  const hints = highConfidenceMatches
+    .slice(0, 3)
+    .map(m => `- ${m.name} (${m.series}): ${m.confidence}% visual similarity, ${m.matchCount} reference images matched`)
+    .join("\n");
+
+  return `
+VISUAL SIMILARITY HINTS (from reference image library):
+The following Bakugan have high visual similarity based on image embeddings:
+${hints}
+
+Consider these as strong candidates, but verify against the actual visual features you observe.
+`;
+}
+
 function buildCatalogByCategory(): string {
   const byCategory: { [key: string]: typeof BAKUGAN_CATALOG } = {};
   
@@ -639,6 +748,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Groq API key not configured. Please add your GROQ_API_KEY." });
       }
 
+      const similarityResult = await performSimilaritySearch(image);
+      const similarityHints = similarityResult.available 
+        ? buildSimilarityHintSection(similarityResult.matches)
+        : "";
+      
+      if (similarityResult.available && similarityResult.matches.length > 0) {
+        console.log(`[Analyze] Similarity search found ${similarityResult.matches.length} matches: ${similarityResult.matches.map(m => `${m.name}(${m.confidence}%)`).join(', ')}`);
+      } else {
+        console.log(`[Analyze] Similarity search: ${similarityResult.message || "No matches"}`);
+      }
+
       const catalogByCategory = buildCatalogByCategory();
       const correctionSection = buildCorrectionSection(corrections);
       
@@ -679,7 +799,7 @@ List 3 possible matches from the catalog with reasoning:
 
 STEP 3: Select best match
 Compare all 3 candidates and select the one that best matches the actual visual features.
-${correctionSection}
+${similarityHints}${correctionSection}
 ATTRIBUTE DETERMINATION BY COLOR:
 - Pyrus = Red/Orange/Crimson
 - Aquos = Blue/Cyan/Navy  
@@ -749,6 +869,17 @@ OUTPUT: Return ONLY this JSON format:
         analysis.ebayData = {
           available: false,
           source: ebayData.source,
+        };
+      }
+
+      if (similarityResult.available && similarityResult.matches.length > 0) {
+        analysis.similarityData = {
+          available: true,
+          matches: similarityResult.matches.slice(0, 3),
+        };
+      } else {
+        analysis.similarityData = {
+          available: false,
         };
       }
 

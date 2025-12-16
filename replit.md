@@ -119,3 +119,36 @@ Preferred communication style: Simple, everyday language.
 - `client/screens/LoginScreen.tsx`: Sign-in UI with Google/Apple buttons
 - `server/auth.ts`: Token generation, verification, OAuth handling
 - `shared/schema.ts`: User and Scan database schemas
+
+### Hybrid Identification System (CLIP + LLM)
+The app uses a hybrid approach combining visual similarity search with LLM-based identification:
+
+**Architecture:**
+- **Reference Image Library**: Admin can upload reference photos for each Bakugan variant
+- **CLIP Embeddings**: Images are processed through Replicate's CLIP model (clip-vit-large-patch14) to generate 512-dimensional embeddings
+- **Similarity Search**: When a user scans a Bakugan, the system:
+  1. Generates CLIP embedding for the scanned image
+  2. Compares against all reference image embeddings using cosine similarity
+  3. Aggregates matches by Bakugan variant and returns top 5
+- **Hybrid Analysis**: High-confidence similarity matches (≥70%) are passed as hints to the LLM prompt
+- **LLM Final Decision**: The LLM uses both the catalog knowledge and similarity hints to make the final identification
+
+**Database Tables:**
+- `bakugan_catalog`: 147 entries with name, series, generation, type, description
+- `reference_images`: Uploaded reference photos with CLIP embeddings (vector(512))
+
+**API Endpoints:**
+- `GET /api/admin/catalog`: List all catalog entries with reference counts
+- `GET /api/admin/catalog/:id`: Get catalog entry details with reference images
+- `POST /api/admin/reference-images`: Upload new reference image
+- `DELETE /api/admin/reference-images/:id`: Remove reference image
+- `POST /api/admin/generate-embeddings`: Generate CLIP embeddings for images without them
+- `POST /api/similarity-search`: Search reference library by image
+
+**Environment Variables:**
+- `REPLICATE_API_TOKEN`: Required for CLIP embedding generation (optional - system falls back to LLM-only if not configured)
+
+**Admin UI:**
+- Profile → Reference Image Manager: Upload and manage reference images
+- Shows reference count per catalog entry
+- Allows bulk embedding generation
