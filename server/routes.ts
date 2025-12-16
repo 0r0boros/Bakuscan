@@ -363,18 +363,18 @@ function buildCorrectionSection(corrections: CorrectionHint[] | undefined): stri
   const correctionLines = corrections
     .filter(c => c.count >= 1)
     .slice(0, 10)
-    .map(c => `- When image resembles "${c.originalName}", consider "${c.correctedName}" instead (corrected ${c.count}x)`)
+    .map(c => `OVERRIDE: "${c.originalName}" → "${c.correctedName}" (${c.count} corrections)`)
     .join('\n');
   
   if (!correctionLines) return '';
   
   return `
 
-=== LEARNED CORRECTIONS ===
-Users have previously corrected these identifications. Use this feedback to improve accuracy:
+=== CRITICAL: USER CORRECTIONS (HIGHEST PRIORITY) ===
+The user has manually corrected these identifications. YOU MUST respect these corrections:
 ${correctionLines}
 
-If the image matches one of these patterns, strongly prefer the corrected name.
+RULE: If you would identify this image as any name on the LEFT side above, you MUST instead return the name on the RIGHT side. These corrections override your visual analysis.
 `;
 }
 
@@ -548,6 +548,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const correctionSection = buildCorrectionSection(corrections);
       
       console.log(`[Analyze] Processing image with ${BAKUGAN_CATALOG.length} catalog entries, ${corrections?.length || 0} corrections`);
+      if (corrections && corrections.length > 0) {
+        console.log(`[Analyze] Corrections being applied: ${corrections.map(c => `${c.originalName}→${c.correctedName}(${c.count})`).join(', ')}`);
+      }
 
       const response = await groq.chat.completions.create({
         model: "meta-llama/llama-4-scout-17b-16e-instruct",
