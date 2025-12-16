@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
   - `GET /api/prices` - Get eBay sold prices only
   - `GET /api/images` - Get reference images only
 - **AI Integration**: Groq API (Llama 4 Scout Vision) for image recognition
-- **Web Scraping**: BeautifulSoup + requests for eBay pricing and image data
+- **Web Scraping**: Selenium + BeautifulSoup for eBay pricing and Bing image data
 - **Session Management**: Flask sessions with secret key
 
 ### Data Storage
@@ -100,4 +100,4 @@ shared/
 ### Known Issues
 - PostgreSQL connection times out from Python context
 - History is session-based (in-memory), cleared on server restart
-- Web scraping may fail due to anti-bot measures; falls back to estimated values based on rarity
+- Web scraping uses Selenium with headless Chromium; falls back to estimated values based on rarity if scraping fails
