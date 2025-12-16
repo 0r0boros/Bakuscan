@@ -102,7 +102,7 @@ async function analyzeImage(imageData) {
         if (resultSection) resultSection.style.display = 'block';
         
         if (result.name && result.name !== 'Unknown' && result.name !== 'Error') {
-            fetchMarketData(result.name, result.attribute);
+            fetchMarketData(result.name, result.attribute, result.rarity);
         }
         
     } catch (err) {
@@ -112,7 +112,7 @@ async function analyzeImage(imageData) {
     }
 }
 
-async function fetchMarketData(bakuganName, attribute) {
+async function fetchMarketData(bakuganName, attribute, rarity) {
     const marketSection = document.getElementById('marketSection');
     const marketLoading = document.getElementById('marketLoading');
     const pricingData = document.getElementById('pricingData');
@@ -129,6 +129,9 @@ async function fetchMarketData(bakuganName, attribute) {
         let url = `/api/market-data?name=${encodeURIComponent(bakuganName)}`;
         if (attribute) {
             url += `&attribute=${encodeURIComponent(attribute)}`;
+        }
+        if (rarity) {
+            url += `&rarity=${encodeURIComponent(rarity)}`;
         }
         
         const response = await fetch(url);
@@ -159,9 +162,16 @@ function displayMarketData(data) {
             const priceRange = document.getElementById('priceRange');
             const numListings = document.getElementById('numListings');
             
-            if (avgPrice) avgPrice.textContent = '$' + data.pricing.average_price.toFixed(2);
-            if (priceRange) priceRange.textContent = '$' + data.pricing.min_price.toFixed(2) + ' - $' + data.pricing.max_price.toFixed(2);
-            if (numListings) numListings.textContent = data.pricing.num_listings + ' recent sales';
+            const pricePrefix = data.pricing.estimated ? '~$' : '$';
+            if (avgPrice) avgPrice.textContent = pricePrefix + data.pricing.average_price.toFixed(2);
+            if (priceRange) priceRange.textContent = pricePrefix + data.pricing.min_price.toFixed(2) + ' - ' + pricePrefix + data.pricing.max_price.toFixed(2);
+            if (numListings) {
+                if (data.pricing.estimated) {
+                    numListings.textContent = 'Estimated value based on rarity';
+                } else {
+                    numListings.textContent = data.pricing.num_listings + ' recent sales';
+                }
+            }
             
             const listingsContainer = document.getElementById('recentListings');
             if (listingsContainer && data.pricing.listings) {

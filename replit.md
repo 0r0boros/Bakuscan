@@ -21,7 +21,11 @@ Preferred communication style: Simple, everyday language.
 - **API Structure**: RESTful endpoints
   - `POST /api/analyze` - Main endpoint for Bakugan image analysis (accepts base64 image)
   - `GET /api/history` - Get user's scan history
+  - `GET /api/market-data` - Get pricing and reference images for a Bakugan
+  - `GET /api/prices` - Get eBay sold prices only
+  - `GET /api/images` - Get reference images only
 - **AI Integration**: Groq API (Llama 4 Scout Vision) for image recognition
+- **Web Scraping**: BeautifulSoup + requests for eBay pricing and image data
 - **Session Management**: Flask sessions with secret key
 
 ### Data Storage
@@ -31,6 +35,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Files
 - `python_app/main.py` - Flask application entry point
+- `python_app/scraper.py` - Web scraping module for eBay pricing and images
 - `python_app/templates/index.html` - Main scanning page
 - `python_app/templates/history.html` - Scan history page
 - `python_app/static/style.css` - Application styles
@@ -88,8 +93,11 @@ shared/
 - Image upload from gallery
 - AI-powered Bakugan identification
 - Session-based scan history
+- **Market value display** - Shows estimated pricing based on eBay sold listings
+- **Reference images** - Displays images for comparison and identification
 - Dark theme with mobile-responsive design
 
 ### Known Issues
 - PostgreSQL connection times out from Python context
 - History is session-based (in-memory), cleared on server restart
+- Web scraping may fail due to anti-bot measures; falls back to estimated values based on rarity

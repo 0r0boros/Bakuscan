@@ -162,12 +162,13 @@ def api_market_data():
     """Get market data (pricing and reference images) for a Bakugan"""
     bakugan_name = request.args.get('name')
     attribute = request.args.get('attribute')
+    rarity = request.args.get('rarity')
     
     if not bakugan_name:
         return jsonify({'error': 'Bakugan name is required'}), 400
     
     try:
-        market_data = get_market_data(bakugan_name, attribute)
+        market_data = get_market_data(bakugan_name, attribute, rarity)
         return jsonify(market_data)
     except Exception as e:
         return jsonify({
