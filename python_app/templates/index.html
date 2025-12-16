@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="scan-page">
+    <div class="camera-container" id="cameraContainer">
+        <video id="videoPreview" autoplay playsinline></video>
+        <canvas id="captureCanvas" style="display: none;"></canvas>
+        
+        <div class="camera-overlay">
+            <div class="scan-frame"></div>
+        </div>
+        
+        <div class="camera-controls">
+            <button id="captureBtn" class="capture-button" disabled>
+                <div class="capture-inner"></div>
+            </button>
+        </div>
+        
+        <div id="cameraError" class="camera-error" style="display: none;">
+            <svg viewBox="0 0 24 24" width="48" height="48">
+                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <p>Camera access needed</p>
+            <button id="retryCamera" class="btn btn-primary">Enable Camera</button>
+        </div>
+    </div>
+    
+    <div id="uploadSection" class="upload-section">
+        <p>Or upload an image:</p>
+        <label for="imageUpload" class="upload-button">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
+            </svg>
+            Choose Photo
+        </label>
+        <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+    </div>
+    
+    <div id="resultSection" class="result-section" style="display: none;">
+        <div class="result-card">
+            <div class="result-header">
+                <h2 id="resultName">Dragonoid</h2>
+                <span id="resultConfidence" class="confidence-badge">95%</span>
+            </div>
+            
+            <div class="result-details">
+                <div class="detail-row">
+                    <span class="detail-label">Series</span>
+                    <span id="resultSeries" class="detail-value">Battle Brawlers</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Attribute</span>
+                    <span id="resultAttribute" class="detail-value attribute-pyrus">Pyrus</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">G-Power</span>
+                    <span id="resultGPower" class="detail-value">450 Gs</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Rarity</span>
+                    <span id="resultRarity" class="detail-value">Common</span>
+                </div>
+            </div>
+            
+            <p id="resultDescription" class="result-description"></p>
+            
+            <button id="scanAgainBtn" class="btn btn-primary btn-full">Scan Another</button>
+        </div>
+    </div>
+    
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Analyzing...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    initCamera();
+    initUpload();
+});
+</script>
+{% endblock %}
