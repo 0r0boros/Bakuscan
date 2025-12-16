@@ -4,6 +4,8 @@ import { View, StyleSheet, Image } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing } from "@/constants/theme";
 
+const appIcon = require("@assets/images/icon.png");
+
 interface HeaderTitleProps {
   title: string;
 }
@@ -12,7 +14,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
   return (
     <View style={styles.container}>
       <Image
-        source={require("../../assets/images/icon.png")}
+        source={appIcon}
         style={styles.icon}
         resizeMode="contain"
       />

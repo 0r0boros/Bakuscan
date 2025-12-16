@@ -6,9 +6,9 @@ import {
   Alert,
   ActivityIndicator,
   Pressable,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
@@ -18,6 +18,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
+
+const appIcon = require("@assets/images/icon.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -129,9 +131,9 @@ export default function LoginScreen() {
     <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing.xl }]}>
       <View style={styles.header}>
         <Image
-          source={require("../../assets/images/icon.png")}
+          source={appIcon}
           style={styles.logo}
-          contentFit="contain"
+          resizeMode="contain"
         />
         <ThemedText type="h1" style={styles.title}>
           BakuScan
