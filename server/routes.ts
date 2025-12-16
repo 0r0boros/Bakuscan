@@ -363,19 +363,40 @@ function buildCorrectionSection(corrections: CorrectionHint[] | undefined): stri
   const correctionLines = corrections
     .filter(c => c.count >= 1)
     .slice(0, 10)
-    .map(c => `OVERRIDE: "${c.originalName}" → "${c.correctedName}" (${c.count} corrections)`)
+    .map(c => `- When visual features match "${c.originalName}", prefer "${c.correctedName}" (corrected ${c.count}x)`)
     .join('\n');
   
   if (!correctionLines) return '';
   
   return `
 
-=== CRITICAL: USER CORRECTIONS (HIGHEST PRIORITY) ===
-The user has manually corrected these identifications. YOU MUST respect these corrections:
+=== LEARNED CORRECTIONS ===
+The user has corrected previous identifications. Use these as guidance when the visual evidence is ambiguous:
 ${correctionLines}
 
-RULE: If you would identify this image as any name on the LEFT side above, you MUST instead return the name on the RIGHT side. These corrections override your visual analysis.
+Apply these corrections only when the image features genuinely match the description. Trust your visual analysis first, but consider these learned preferences when deciding between similar candidates.
 `;
+}
+
+function buildCatalogByCategory(): string {
+  const byCategory: { [key: string]: typeof BAKUGAN_CATALOG } = {};
+  
+  BAKUGAN_CATALOG.forEach(b => {
+    const key = b.series;
+    if (!byCategory[key]) byCategory[key] = [];
+    byCategory[key].push(b);
+  });
+  
+  let output = '';
+  
+  for (const series of Object.keys(byCategory)) {
+    output += `\n[${series}]\n`;
+    byCategory[series].forEach(b => {
+      output += `- ${b.name}: ${b.description}\n`;
+    });
+  }
+  
+  return output;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -544,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Groq API key not configured. Please add your GROQ_API_KEY." });
       }
 
-      const namesList = BAKUGAN_CATALOG.map(b => b.name).join(', ');
+      const catalogByCategory = buildCatalogByCategory();
       const correctionSection = buildCorrectionSection(corrections);
       
       console.log(`[Analyze] Processing image with ${BAKUGAN_CATALOG.length} catalog entries, ${corrections?.length || 0} corrections`);
@@ -562,33 +583,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 type: "text",
                 text: `You are an expert at identifying Bakugan toys from the original 2007-2012 series.
 
-TASK: Look at this image and identify which Bakugan it is. You MUST choose from this complete list of ${BAKUGAN_CATALOG.length} valid Bakugan names:
+TASK: Identify this Bakugan toy by analyzing its visual features and matching against the COMPLETE catalog of ${BAKUGAN_CATALOG.length} Bakugan below.
 
-${namesList}
+=== COMPLETE BAKUGAN CATALOG (${BAKUGAN_CATALOG.length} entries) ===
+${catalogByCategory}
+=== END CATALOG ===
 
-IMPORTANT RULES:
-1. CAREFULLY examine the physical shape of the toy - wings, claws, heads, body type
-2. Do NOT default to common names like Dragonoid or Mantris without evidence
-3. Consider ALL ${BAKUGAN_CATALOG.length} names before deciding
-4. Match the ACTUAL visual features you see to a specific Bakugan
+IDENTIFICATION PROCESS (you must follow these steps):
+
+STEP 1: Describe what you see
+- Body shape (humanoid, dragon, insect, beast, bird, aquatic)
+- Key features (wings, claws, heads, horns, shell, blades, tentacles)
+- Mechanical or organic appearance
+- Size/proportions of features
+
+STEP 2: Generate your top 3 candidates
+List 3 possible matches from the catalog with reasoning:
+- Candidate 1: [Name] - [Why it matches]
+- Candidate 2: [Name] - [Why it matches]  
+- Candidate 3: [Name] - [Why it matches]
+
+STEP 3: Select best match
+Compare all 3 candidates and select the one that best matches the actual visual features.
 ${correctionSection}
-IDENTIFICATION GUIDE BY CREATURE TYPE:
-
-DRAGONS/REPTILES: Dragonoid (bat wings), Helios (mechanical dragon), Hydranoid (multiple heads), Dharak (dark dragon), Naga (white dragon), Wavern (angelic dragon)
-
-HUMANOID/WARRIORS: Fear Ripper (claws), Reaper (skull/scythe), Siege (knight), Percival (dark knight), Gorem (rock golem), Robotallion (robot), Aranaut (spider knight)
-
-BIRDS: Skyress (phoenix), Falconeer (falcon), Hawktor (hawk), Storm Skyress (storm phoenix), Ingram (ninja bird), El Condor (condor mask)
-
-INSECTS: Mantris (praying mantis), Centipoid (centipede), Bee Striker (bee), Moskeeto (mosquito), Stinglash (scorpion)
-
-BEASTS: Tigrerra (tiger blades), Saurus (T-Rex), Juggernoid (turtle), Terrorclaw (crab), Griffon (griffin), Tuskor (mammoth), Hynoid (hyena), Lars Lion (lion)
-
-AQUATIC: Preyas (chameleon), Sirenoid (mermaid), Serpenoid (snake), Abis Omega (shark), Tentaclear (jellyfish), Limulus (horseshoe crab), Elfin (elf fairy)
-
-DETERMINE ATTRIBUTE BY COLOR:
+ATTRIBUTE DETERMINATION BY COLOR:
 - Pyrus = Red/Orange/Crimson
-- Aquos = Blue/Cyan/Navy
+- Aquos = Blue/Cyan/Navy  
 - Haos = White/Yellow/Gold
 - Darkus = Black/Purple/Dark gray
 - Subterra = Brown/Tan/Beige
@@ -596,7 +616,7 @@ DETERMINE ATTRIBUTE BY COLOR:
 
 OUTPUT: Return ONLY this JSON format:
 {
-  "name": "[EXACT name from list above - must match exactly]",
+  "name": "[EXACT name from catalog - must match exactly]",
   "series": "[Battle Brawlers/New Vestroia/Gundalian Invaders/Mechtanium Surge]",
   "attribute": "[Pyrus/Aquos/Haos/Darkus/Subterra/Ventus]",
   "gPower": [300-900],
@@ -605,7 +625,8 @@ OUTPUT: Return ONLY this JSON format:
   "specialFeatures": [],
   "estimatedValue": { "low": 5, "high": 20 },
   "confidence": [0.0-1.0],
-  "identificationReason": "[Describe the specific visual features you see: wings, heads, claws, body shape, and how they match the identified Bakugan]"
+  "topCandidates": ["[1st choice]", "[2nd choice]", "[3rd choice]"],
+  "identificationReason": "[Describe: 1) What features you see, 2) Your 3 candidates and why, 3) Why you chose the winner]"
 }`,
               },
               {
