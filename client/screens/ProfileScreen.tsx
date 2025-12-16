@@ -20,6 +20,9 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useScanHistory } from "@/hooks/useScanHistory";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 
 const AVATARS = [
   { id: "sphere", icon: "circle" as const },
@@ -130,6 +133,7 @@ export default function ProfileScreen() {
   const { settings, updateSettings } = useUserSettings();
   const { history } = useScanHistory();
   const { user, logout, isGuest } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
@@ -269,6 +273,16 @@ export default function ProfileScreen() {
           <SettingsRow icon="info" title="Version" value="1.0.0" />
           <SettingsRow icon="shield" title="Privacy Policy" />
           <SettingsRow icon="file-text" title="Terms of Service" />
+        </Card>
+
+        <Card style={styles.settingsCard}>
+          <ThemedText type="h4" style={styles.sectionTitle}>Admin</ThemedText>
+          <SettingsRow 
+            icon="database" 
+            title="Reference Image Manager" 
+            value=""
+            onPress={() => navigation.navigate("Admin")}
+          />
         </Card>
 
         <Card style={styles.settingsCard}>

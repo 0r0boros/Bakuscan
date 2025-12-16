@@ -1,10 +1,12 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import ProfileScreen from "@/screens/ProfileScreen";
+import AdminScreen from "@/screens/AdminScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type ProfileStackParamList = {
   Profile: undefined;
+  Admin: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -19,6 +21,14 @@ export default function ProfileStackNavigator() {
         component={ProfileScreen}
         options={{
           headerTitle: "Profile",
+        }}
+      />
+      <Stack.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{
+          headerTitle: "Admin",
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
