@@ -213,27 +213,30 @@ export default function ScanResultScreen() {
   const handleCorrection = async (correctionData: CorrectionData) => {
     if (!analysis) return;
 
-    await addCorrection(
-      imageUri,
-      imageUri,
-      analysis.name,
-      correctionData
-    );
-
-    setAnalysis({
+    const originalName = analysis.name;
+    
+    const updatedAnalysis: BakuganAnalysis = {
       ...analysis,
       name: correctionData.name,
       attribute: correctionData.attribute,
       gPower: parseInt(correctionData.gPower) || analysis.gPower,
-    });
+    };
+    
+    setAnalysis(updatedAnalysis);
+    setIsCorrected(true);
+    setShowCorrectionModal(false);
+    setSuggestedName(null);
+
+    await addCorrection(
+      imageUri,
+      imageUri,
+      originalName,
+      correctionData
+    );
 
     if (isSaved) {
       await updateScanCorrection(imageUri, correctionData);
     }
-
-    setIsCorrected(true);
-    setShowCorrectionModal(false);
-    setSuggestedName(null);
 
     if (Platform.OS !== "web") {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
