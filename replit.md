@@ -90,3 +90,11 @@ Preferred communication style: Simple, everyday language.
 - Stats track how often specific Bakugan are corrected to different names
 - Smart suggestion banner appears when AI identifies a Bakugan that has been corrected 2+ times before
 - HistoryScreen shows "Corrected" badge for corrected items
+
+### AI Learning from Corrections
+- The app learns from user corrections to improve future identifications
+- useCorrectionHistory.getCorrectionSummary() returns top N corrections with counts
+- Correction history is sent with each analyze request to the server
+- Server injects "Learned Corrections" section into AI prompt with format: "When image looks like X but corrected to Y (count: N), prefer Y"
+- System waits for AsyncStorage to load corrections before analyzing, ensuring learned data is always included
+- Client BAKUGAN_NAMES catalog synced with full 143-name server catalog for consistency
